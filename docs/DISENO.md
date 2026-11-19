@@ -1,6 +1,6 @@
 # Documento de Diseño — Bolsa de Valores de Zuzu (mod para Stardew Valley)
 
-> Estado: **borrador v0.1** · Plataforma: Stardew Valley 1.6 + SMAPI 4.x · Lenguaje: C# (.NET 6) + Harmony
+> Estado: **borrador v0.2** · Plataforma: Stardew Valley 1.6 + SMAPI 4.x · Lenguaje: C# (.NET 6) + Harmony
 
 ---
 
@@ -26,6 +26,10 @@ La economía afecta los **precios reales del juego** (venta en el cajón de env�
 | Dificultad | Niveles configurables: **Casual / Realista / Argentina** |
 | Multijugador | **Un jugador primero**; arquitectura preparada para multijugador (host autoritativo) |
 | Acceso a la terminal | **Ambas**: edificio en Pelican Town y terminal fabricable para la granja |
+| Commodities iniciales | **15** (ver §6.1) |
+| Empresas ficticias | Nombres y tickers de §8.1 aprobados |
+| Edificio | **Agencia Bursátil** en el **lote vacío al sur de la plaza** de Pelican Town |
+| NPC | **Sí**: agente de bolsa con diálogos, horarios y amistad (ver §13.3) |
 
 ### 1.2 Pilares de diseño
 
@@ -161,19 +165,30 @@ haya originado el mod (compra en tienda, venta, regalo) se detecta y se asienta 
 
 ## 6. Commodities: oferta y demanda
 
-### 6.1 Agrupación
-Cada objeto vendible pertenece a un commodity. Ejemplos iniciales:
+### 6.1 Commodities de la primera versión (15)
 
-| Commodity | Objetos incluidos | Unidad de contrato futuro |
-|---|---|---|
-| Chirivía, Papa, Coliflor, Melón, Calabaza, etc. | Cada cultivo es un commodity propio | 100 u. |
-| Trigo, Maíz | — (granos, núcleo del mercado de futuros) | 500 u. |
-| Leche, Huevos, Lana | Productos animales | 100 u. |
-| Cobre, Hierro, Oro, Iridio | Minerales y lingotes | 100 u. |
-| Pescado (por especie o canasta) | Peces | 50 u. |
-| Vino, Queso, Mermeladas | Productos artesanales | 50 u. |
+| # | Commodity | Objetos del juego (ID 1.6) | Sector | Estación de cosecha | Futuro MATZU (unidad) |
+|---|---|---|---|---|---|
+| 1 | Trigo | Trigo (`262`) | Granos | Verano / Otoño | ✅ 500 u. |
+| 2 | Maíz | Maíz (`270`) | Granos | Verano / Otoño | ✅ 500 u. |
+| 3 | Chirivía | Chirivía (`24`) | Hortalizas | Primavera | ✅ 100 u. |
+| 4 | Papa | Papa (`192`) | Hortalizas | Primavera | ✅ 100 u. |
+| 5 | Tomate | Tomate (`256`) | Hortalizas | Verano | ✅ 100 u. |
+| 6 | Arándano | Arándano (`258`) | Frutas | Verano | ✅ 200 u. |
+| 7 | Melón | Melón (`254`) | Frutas | Verano | ✅ 50 u. |
+| 8 | Calabaza | Calabaza (`276`) | Hortalizas | Otoño | ✅ 50 u. |
+| 9 | Leche | Leche (`184`), Leche grande (`186`) | Animal | Todo el año | ✅ 100 u. |
+| 10 | Huevo | Huevo blanco/marrón y grandes (`176`, `180`, `174`, `182`) | Animal | Todo el año | ✅ 200 u. |
+| 11 | Cobre | Mineral de cobre (`378`) | Minería | Todo el año | ✅ 500 u. |
+| 12 | Hierro | Mineral de hierro (`380`) | Minería | Todo el año | ✅ 500 u. |
+| 13 | Oro | Mineral de oro (`384`) | Minería | Todo el año | ✅ 200 u. |
+| 14 | Canasta de pescado | Sardina, Anchoa, Atún, Arenque, Carpa, Pez sol, Brema, Lubina (`131`, `129`, `130`, `147`, `142`, `145`, `132`, `136`) | Pesca | Todo el año (varía por especie) | ✅ 50 u. |
+| 15 | Vino | Vino de cualquier fruta (`348`, con sabor) | Artesanal | Todo el año | ✅ 50 u. |
 
-La **calidad** (normal, plata, oro, iridio) mantiene el multiplicador vanilla sobre el precio del commodity.
+- Los objetos que no pertenecen a ningún commodity mantienen su precio vanilla **ajustado por inflación** (IPC-F).
+- En el vino y la canasta de pescado, el precio del commodity es un **índice** que multiplica el precio vanilla de cada variante.
+- La **calidad** (normal, plata, oro, iridio) mantiene el multiplicador vanilla sobre el precio del commodity.
+- Expansiones futuras: el resto de los cultivos, gemas, lingotes, productos artesanales y madera/piedra (para CONS).
 
 ### 6.2 Modelo de precio
 
@@ -386,8 +401,10 @@ Cada parámetro puede además ajustarse individualmente en `config.json` (y con 
 ## 13. Interfaz
 
 ### 13.1 Acceso
-- **Agencia Bursátil de Pelican Town**: edificio nuevo en el pueblo (mapa editado). Horario de atención: días hábiles
-  9:00–17:00. Allí también se pagan impuestos y está el Silo de Acopio.
+- **Agencia Bursátil de Pelican Town**: edificio nuevo en el **lote vacío al sur de la plaza** (edición del mapa
+  `Town` + mapa interior nuevo). Horario de atención: días hábiles 9:00–17:00. Allí atiende el agente de bolsa,
+  se pagan impuestos y está el Silo de Acopio. Las coordenadas exactas se fijan al editar el mapa, cuidando no
+  bloquear caminos de NPCs ni los festivales que usan la plaza (Feria del Huevo, Festival de la Flor, Feria de Otoño).
   *(Interino hasta tener el edificio: una acción sobre un mostrador/tile existente).*
 - **Terminal Bursátil** (gran objeto fabricable): se desbloquea por carta del ALyC tras abrir la cuenta comitente.
   Permite operar desde la granja.
@@ -403,6 +420,30 @@ Cada parámetro puede además ajustarse individualmente en `config.json` (y con 
 7. **Empresas**: contabilidad de cada empresa del jugador, estado de resultados, balance, constituir empresa.
 8. **Legal**: deudas, embargos, concurso.
 
+### 13.3 NPC: el agente de bolsa
+
+- **Quién es**: agente del ALyC ficticio **Valle Inversiones**, llegado de Zuzu City para abrir la sucursal.
+  Nombre y aspecto a definir (provisorio: **Julián Ferreyra**). No es candidato a casamiento.
+- **Presentación**: llega en la primavera del año 1 (evento con cinemática corta en la plaza); a partir de ahí
+  envía cartas que funcionan como **tutorial** de cada sistema a medida que se desbloquea.
+- **Horario**: días hábiles en la Agencia de 9:00 a 17:00; después pasa por el Saloon; los fines de semana pasea por
+  la playa o viaja a Zuzu City (no está en el pueblo). Vive en el piso de arriba de la Agencia.
+- **Diálogos**: comentan el mercado del día (si subió el MERZU, si hay inflación alta, si tenés un margin call),
+  reaccionan a tu situación (embargos, quiebra, IPO) y a las noticias.
+- **Amistad** (corazones) con beneficios:
+
+| Corazones | Beneficio |
+|---|---|
+| 2 | Descuento en comisiones del ALyC (−10%) |
+| 4 | **Datos del mercado**: rumores que anticipan algunos eventos (con chance de error) |
+| 6 | Acceso a licitaciones primarias de ON corporativas y a colocar cauciones a mejor tasa |
+| 8 | Asesoramiento para constituir la S.A. y emitir ON propias; plazo extra en margin calls |
+| 10 | Coordina la **IPO** de tu empresa con condiciones preferenciales; evento final |
+
+- **Regalos**: le encantan el café, el *Diario de Zuzu* (objeto nuevo) y los lingotes de oro; le gustan los vinos;
+  odia los objetos basura.
+- **Arte**: retrato y sprites necesitan un artista (o arte provisorio de placeholder durante el desarrollo).
+
 ---
 
 ## 14. Hoja de ruta
@@ -417,7 +458,7 @@ Cada parámetro puede además ajustarse individualmente en `config.json` (y con 
 | **5 — Derivados** | MATZU: futuros con garantías y entrega física, Silo de Acopio, opciones | Cubrís tu cosecha | Ciclo completo de un futuro con entrega |
 | **6 — Legal** | Embargos, concurso, quiebra, préstamos bancarios, calificación del jugador | Las deudas tienen consecuencias | Escalera completa reproducible en tests |
 | **7 — Expansión empresaria** | Nuevas empresas del jugador, S.A., emisión de ON propias, retenciones/aranceles completos, comercializadora Gotoro, IPO | Final del juego | IPO funcional |
-| **8 — Edificio y pulido** | Agencia Bursátil en el pueblo, gráficos, balance de dificultades, i18n en/es, compatibilidad con GMCM | Versión 1.0 | Partida de prueba de 1 año en cada dificultad |
+| **8 — Edificio, NPC y pulido** | Agencia Bursátil en el lote al sur de la plaza, NPC agente de bolsa (horarios, diálogos, amistad, eventos), gráficos, balance de dificultades, i18n en/es, compatibilidad con GMCM | Versión 1.0 | Partida de prueba de 1 año en cada dificultad |
 | **9 — Multijugador / Argentina avanzada** | Host autoritativo, cuentas por granjero; tipo de cambio, cepo, brecha | — | — |
 
 ---
@@ -436,7 +477,5 @@ Cada parámetro puede además ajustarse individualmente en `config.json` (y con 
 
 ## 16. Preguntas abiertas
 
-- ¿Cuántos commodities en la primera versión? (propuesta: ~15 de los productos más comunes y luego expandir)
-- ¿Nombres definitivos de las empresas ficticias y tickers?
-- ¿Edificio nuevo en Pelican Town: ubicación? (propuesta: lote vacío al sur de la plaza)
-- ¿La Agencia Bursátil tiene un NPC (agente de bolsa) con diálogos y amistad?
+- Nombre y aspecto definitivos del agente de bolsa (provisorio: Julián Ferreyra).
+- ¿Quién hace el arte (retrato, sprites, edificio, Terminal Bursátil)? ¿Placeholder hasta conseguir artista?
