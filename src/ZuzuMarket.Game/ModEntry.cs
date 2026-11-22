@@ -158,7 +158,18 @@ internal sealed class ModEntry : Mod
             return;
         }
 
-        DayStartedInfo info = Simulation.OnDayStarted(GameDateBridge.CurrentDate(), WeatherBridge.Today(), FarmBridge.Snapshot());
+        DayStartedInfo info = Simulation.OnDayStarted(
+            GameDateBridge.CurrentDate(),
+            WeatherBridge.Today(),
+            FarmBridge.Snapshot(),
+            _config.AutoDebit ? Game1.player.Money : null);
+
+        // El débito automático ya se asentó día por día: se descuenta el oro antes de conciliar.
+        if (info.AutoDebitTotal > 0)
+        {
+            Game1.player.Money -= (int)info.AutoDebitTotal;
+        }
+
         MoneyBridge.Reconcile(Simulation, Helper.Translation.Get("entry.reconcile-day-start"));
 
         // El texto de las cartas y el costo de las construcciones dependen del estado del día.
@@ -167,10 +178,7 @@ internal sealed class ModEntry : Mod
         _taxMail!.Publish(info.TaxNotices);
         _brokerMail!.Publish(info.MarketNotices, Simulation.Broker.IsOpen);
         _phone!.Place();
-        if (_config.AutoDebit)
-        {
-            _municipalidad!.AutoDebit(Simulation);
-        }
+        _municipalidad!.AnnounceAutoDebit(Simulation, info);
 
         _money!.Reset();
 

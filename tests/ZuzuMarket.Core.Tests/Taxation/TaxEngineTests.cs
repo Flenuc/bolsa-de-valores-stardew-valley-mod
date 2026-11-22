@@ -248,6 +248,32 @@ public class TaxEngineTests
     }
 
     [Fact]
+    public void AutoDebit_PaysOnTheDueDateEvenWhenDaysAreSkipped()
+    {
+        EconomySimulation sim = NewGame();
+        DayStartedInfo info = sim.OnDayStarted(new EconomicDate(1, Season.Summer, 2), autoDebitBudget: 10_000);
+
+        // Las boletas de primavera se pagaron el lunes 15 (su vencimiento), sin intereses ni multa.
+        TaxObligation fee = Single(sim, TaxKind.Monotributo, Spring1.FiscalPeriod);
+        Assert.True(fee.IsPaid);
+        Assert.Equal(new EconomicDate(1, Season.Spring, 15), fee.PaidOn);
+        Assert.Equal(150, fee.PaidAmount);
+        Assert.Contains(info.AutoDebited, p => p.ObligationId == fee.Id && p.Amount == 150);
+        Assert.DoesNotContain(info.TaxNotices, n => n.Kind is TaxNoticeKind.Overdue or TaxNoticeKind.Intimated or TaxNoticeKind.InCollection);
+        Assert.Equal(0m, Balance(sim, SystemAccounts.InteresesYMultasFiscales));
+        Assert.Equal(10_000m - info.AutoDebitTotal, Balance(sim, SystemAccounts.Caja));
+    }
+
+    [Fact]
+    public void AutoDebit_WithoutEnoughGold_LeavesTheBillOverdue()
+    {
+        EconomySimulation sim = NewGame(cash: 100);
+        DayStartedInfo info = sim.OnDayStarted(new EconomicDate(1, Season.Spring, 20), autoDebitBudget: 100);
+        Assert.Empty(info.AutoDebited);
+        Assert.Equal(ObligationStatus.Overdue, Single(sim, TaxKind.Monotributo, Spring1.FiscalPeriod).Status);
+    }
+
+    [Fact]
     public void LateInterest_ScalesWithDifficulty()
     {
         EconomySimulation argentina = NewGame("argentina");

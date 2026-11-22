@@ -28,6 +28,10 @@ internal static class Formatting
     public static string Number(ITranslationHelper i18n, double value, string format = "0.000") =>
         value.ToString(format, Culture(i18n));
 
+    /// <summary>Oro con centavos: 390,30g.</summary>
+    public static string Money(ITranslationHelper i18n, decimal value) =>
+        value.ToString("#,0.00", Culture(i18n)) + "g";
+
     public static string Gold(ITranslationHelper i18n, double value) =>
         value.ToString("#,0", Culture(i18n)) + "g";
 }

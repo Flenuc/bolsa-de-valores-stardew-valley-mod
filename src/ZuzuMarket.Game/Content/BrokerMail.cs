@@ -62,9 +62,9 @@ internal sealed class BrokerMail
         {
             string? text = n.Kind switch
             {
-                MarketNoticeKind.Dividend => I18n.Get("broker.hud.dividend", new { ticker = n.Instrument, amount = Formatting.Gold(I18n, (double)n.Amount) }),
-                MarketNoticeKind.LetraMatured => I18n.Get("broker.hud.letra", new { id = n.Instrument, amount = Formatting.Gold(I18n, (double)n.Amount) }),
-                MarketNoticeKind.CaucionMatured => I18n.Get("broker.hud.caucion", new { amount = Formatting.Gold(I18n, (double)n.Amount) }),
+                MarketNoticeKind.Dividend => I18n.Get("broker.hud.dividend", new { ticker = n.Instrument, amount = Formatting.Money(I18n, n.Amount) }),
+                MarketNoticeKind.LetraMatured => I18n.Get("broker.hud.letra", new { id = n.Instrument, amount = Formatting.Money(I18n, n.Amount) }),
+                MarketNoticeKind.CaucionMatured => I18n.Get("broker.hud.caucion", new { amount = Formatting.Money(I18n, n.Amount) }),
                 _ => null,
             };
             if (text is not null)

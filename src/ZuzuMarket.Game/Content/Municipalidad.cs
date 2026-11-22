@@ -88,8 +88,29 @@ internal sealed class Municipalidad
             });
     }
 
-    /// <summary>Débito automático: paga lo vencido o que vence hoy, mientras alcance el oro.</summary>
-    public void AutoDebit(EconomySimulation sim) => Pay(sim, sim.Taxes.DueOn(sim.CurrentDate), automatic: true);
+    /// <summary>Avisa lo que pagó el débito automático y si quedó algo vencido sin pagar.</summary>
+    public void AnnounceAutoDebit(EconomySimulation sim, DayStartedInfo info)
+    {
+        foreach (AutoDebitPayment p in info.AutoDebited)
+        {
+            if (sim.Taxes.Find(p.ObligationId) is { } o)
+            {
+                _monitor.Log($"Débito automático: boleta {o.Id} ({TaxText.Tax(I18n, o.Kind)}, {GameDateBridge.Format(I18n, o.Period)}) pagada el {GameDateBridge.Format(I18n, p.Date)}: {p.Amount}g.", LogLevel.Debug);
+            }
+        }
+
+        if (info.AutoDebited.Count > 0)
+        {
+            _mail.Hud(I18n.Get("hud.autodebit", new { count = info.AutoDebited.Count, total = Formatting.Gold(I18n, info.AutoDebitTotal) }));
+        }
+
+        if (sim.Taxes.DueOn(sim.CurrentDate).Count > 0 && info.DaysAdvanced > 0)
+        {
+            _mail.Hud(I18n.Get("hud.autodebit-short"), 3);
+        }
+
+        _money.Reset();
+    }
 
     /// <summary>Paga en orden; se detiene en la primera boleta que no alcanza a cubrir.</summary>
     public void Pay(EconomySimulation sim, IEnumerable<TaxObligation> obligations, bool automatic)

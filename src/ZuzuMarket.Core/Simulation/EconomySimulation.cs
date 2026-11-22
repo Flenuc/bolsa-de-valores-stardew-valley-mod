@@ -42,7 +42,15 @@ public sealed record DayStartedInfo(
     IReadOnlyList<EventDefinition> NewEvents,
     IReadOnlyList<InflationRecord> PublishedInflation,
     IReadOnlyList<TaxNotice> TaxNotices,
-    IReadOnlyList<MarketNotice> MarketNotices);
+    IReadOnlyList<MarketNotice> MarketNotices,
+    IReadOnlyList<AutoDebitPayment> AutoDebited)
+{
+    /// <summary>Oro total que el juego tiene que descontarle al jugador por el débito automático.</summary>
+    public long AutoDebitTotal => AutoDebited.Sum(p => p.Amount);
+}
+
+/// <summary>Boleta pagada por débito automático.</summary>
+public sealed record AutoDebitPayment(long ObligationId, EconomicDate Date, long Amount);
 
 /// <summary>
 /// Orquestador: avanza el mundo económico un día por vez.
@@ -172,9 +180,17 @@ public sealed class EconomySimulation
     /// Se llama al empezar cada día del juego. Simula un paso por cada día transcurrido; los días salteados
     /// se simulan con clima soleado.
     /// </summary>
-    public DayStartedInfo OnDayStarted(EconomicDate date, Weather weather = Weather.Sun, FarmSnapshot? farm = null)
+    /// <param name="autoDebitBudget">
+    /// Oro disponible para el débito automático (<c>null</c> = desactivado). Se usa en cada día simulado, antes de
+    /// aplicar la mora, así una boleta que vence se paga ese mismo día aunque se salteen días.
+    /// El juego debe descontar <see cref="DayStartedInfo.AutoDebitTotal"/> del oro del jugador.
+    /// </param>
+    public DayStartedInfo OnDayStarted(EconomicDate date, Weather weather = Weather.Sun, FarmSnapshot? farm = null, long? autoDebitBudget = null)
     {
         farm ??= FarmSnapshot.Empty;
+        _autoDebitBudget = autoDebitBudget;
+        var autoDebited = new List<AutoDebitPayment>();
+        _autoDebited = autoDebited;
         EconomicDate previous = _state.CurrentDate;
         int daysAdvanced = previous.DaysUntil(date);
         var newEvents = new List<EventDefinition>();
@@ -207,9 +223,13 @@ public sealed class EconomySimulation
             taxNotices.AddRange(Taxes.Start(_state.CurrentDate, farm, (decimal)Inflation.Index));
         }
 
+        RunAutoDebit(_state.CurrentDate);
+        _autoDebitBudget = null;
+        _autoDebited = null;
+
         bool newPeriod = daysAdvanced > 0 && date.FiscalPeriod != previous.FiscalPeriod;
         bool newYear = daysAdvanced > 0 && date.Year != previous.Year;
-        return new DayStartedInfo(date, date.IsBusinessDay, newPeriod, newYear, daysAdvanced, newEvents, published, taxNotices, marketNotices);
+        return new DayStartedInfo(date, date.IsBusinessDay, newPeriod, newYear, daysAdvanced, newEvents, published, taxNotices, marketNotices, autoDebited);
     }
 
     /// <summary>Se llama al terminar el día, antes de guardar.</summary>
@@ -300,6 +320,34 @@ public sealed class EconomySimulation
         return Ledger.Post(LedgerEntities.Jugador, _state.CurrentDate, description, EntrySources.Conciliacion, lines);
     }
 
+    private long? _autoDebitBudget;
+    private List<AutoDebitPayment>? _autoDebited;
+
+    /// <summary>Paga lo que vence (o venció) hasta ese día, mientras alcance el presupuesto.</summary>
+    private void RunAutoDebit(EconomicDate day)
+    {
+        if (_autoDebitBudget is not long budget || _autoDebited is null || !Taxes.Started)
+        {
+            return;
+        }
+
+        foreach (TaxObligation o in Taxes.DueOn(day))
+        {
+            if (budget < o.Total)
+            {
+                break;
+            }
+
+            if (Taxes.Pay(o.Id, day) is long paid)
+            {
+                budget -= paid;
+                _autoDebited.Add(new AutoDebitPayment(o.Id, day, paid));
+            }
+        }
+
+        _autoDebitBudget = budget;
+    }
+
     private void RecordSales(IReadOnlyCollection<SoldItem> items, SaleChannel channel)
     {
         foreach (SoldItem item in items)
@@ -350,6 +398,7 @@ public sealed class EconomySimulation
         Market.Step(day, Inflation.Index, (double)difficulty.PriceVolatility, _state.Seed, c => Events.PriceImpact(c, day));
         Stocks.Step(day, Market, Inflation.Index, (double)difficulty.PriceVolatility, _state.Seed);
         marketNotices.AddRange(Broker.OnDay(day));
+        RunAutoDebit(day);
         taxNotices.AddRange(Taxes.OnDay(day));
     }
 
