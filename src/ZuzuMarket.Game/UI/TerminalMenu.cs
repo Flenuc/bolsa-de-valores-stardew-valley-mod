@@ -925,8 +925,15 @@ internal sealed class TerminalMenu : IClickableMenu
         }
 
         string Label(double v) => label is not null ? label(v) : isIndex ? Formatting.Number(I18n, v, "#,0.00") : Price(v);
-        Text(b, Label(max), area.Right - 6 - (int)Game1.smallFont.MeasureString(Label(max)).X, area.Y + 2, Muted);
-        Text(b, Label(min), area.Right - 6 - (int)Game1.smallFont.MeasureString(Label(min)).X, area.Bottom - 30, Muted);
+        // Las etiquetas van en las esquinas por donde no pasa la línea: si sube, máximo arriba a la izquierda y
+        // mínimo abajo a la derecha; si baja, al revés.
+        bool rising = values[^1] >= values[0];
+        int Left(string s) => area.X + 6;
+        int Right(string s) => area.Right - 6 - (int)Game1.smallFont.MeasureString(s).X;
+        string maxLabel = Label(max);
+        string minLabel = Label(min);
+        Text(b, maxLabel, rising ? Left(maxLabel) : Right(maxLabel), area.Y + 2, Muted);
+        Text(b, minLabel, rising ? Right(minLabel) : Left(minLabel), area.Bottom - 30, Muted);
     }
 
     /// <summary>"2 Ver. año 1": cabe en las tablas.</summary>

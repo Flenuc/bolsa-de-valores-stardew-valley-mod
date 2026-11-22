@@ -186,9 +186,10 @@ public class FixedIncomeTests
         BondSeries bond = sim.Broker.FindBond("ONJOJA1")!;
         Assert.Equal(40, sim.Broker.BondPrice(bond, Monday), 6); // recupero 40%
         Assert.Equal("D", sim.Broker.Rating("JOJA"));
+        Assert.True(sim.Stocks.PriceAt("JOJA", TenAm) < stockBefore * 0.3); // la acción se desploma en el momento
 
         sim.OnDayStarted(Monday.AddDays(1));
-        Assert.True(sim.Stocks.Get("JOJA").Close < stockBefore * 0.3); // la acción se desploma
+        Assert.True(sim.Stocks.Get("JOJA").Close < stockBefore * 0.3); // y sigue abajo
 
         DayStartedInfo summer = sim.OnDayStarted(new EconomicDate(1, Season.Summer, 1));
         Assert.DoesNotContain(summer.MarketNotices, n => n.Kind == MarketNoticeKind.Coupon && n.Instrument == "ONJOJA1");

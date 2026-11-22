@@ -128,12 +128,24 @@ public sealed class StockMarket
 
     public double MerzuAt(int timeOfDay) => MerzuFor(c => PriceAt(c.Ticker, timeOfDay));
 
-    /// <summary>Golpe al sentimiento (p. ej. cuando la empresa entra en default); se refleja en el próximo cierre.</summary>
+    /// <summary>
+    /// Golpe al sentimiento (p. ej. cuando la empresa entra en default). Se aplica en el momento: el precio de hoy
+    /// (camino intradiario y cierre) se ajusta, y como queda en el sentimiento, también los días siguientes.
+    /// </summary>
     public void Shock(string ticker, double sentimentDelta)
     {
-        if (_s.Stocks.TryGetValue(ticker, out StockState? s))
+        if (!_s.Stocks.TryGetValue(ticker, out StockState? s))
         {
-            s.Sentiment += sentimentDelta;
+            return;
+        }
+
+        double factor = Math.Exp(sentimentDelta);
+        s.Sentiment += sentimentDelta;
+        s.Close *= factor;
+        s.Intraday = s.Intraday.Select(p => p * factor).ToList();
+        if (s.History.Count > 0 && s.History[^1].Date == _s.MerzuHistory.LastOrDefault()?.Date)
+        {
+            s.History[^1] = s.History[^1] with { Close = s.Close };
         }
     }
 
