@@ -362,7 +362,7 @@ internal sealed class TerminalMenu : IClickableMenu
 
     private void DrawFixedIncome(SpriteBatch b, Rectangle area)
     {
-        string[] tabs = { "terminal.fi.letras", "terminal.fi.sovereign", "terminal.fi.corporate" };
+        string[] tabs = { "terminal.fi.letras", "terminal.fi.cauciones", "terminal.fi.sovereign", "terminal.fi.corporate" };
         int x = area.X;
         for (int i = 0; i < tabs.Length; i++)
         {
@@ -378,13 +378,17 @@ internal sealed class TerminalMenu : IClickableMenu
         }
 
         var inner = new Rectangle(area.X, area.Y + 62, area.Width, area.Height - 62);
-        if (_fixedIncomeTab == 0)
+        switch (_fixedIncomeTab)
         {
-            DrawLetras(b, inner);
-        }
-        else
-        {
-            DrawBonds(b, inner, sovereign: _fixedIncomeTab == 1);
+            case 0:
+                DrawLetras(b, inner);
+                break;
+            case 1:
+                DrawCauciones(b, inner);
+                break;
+            default:
+                DrawBonds(b, inner, sovereign: _fixedIncomeTab == 2);
+                break;
         }
     }
 
@@ -400,7 +404,7 @@ internal sealed class TerminalMenu : IClickableMenu
         }
 
         int w = area.Width;
-        int[] cols = { 0, (int)(w * 0.13), (int)(w * 0.33), (int)(w * 0.42), (int)(w * 0.55), (int)(w * 0.68), (int)(w * 0.79), (int)(w * 0.90) };
+        int[] cols = { 0, (int)(w * 0.12), (int)(w * 0.30), (int)(w * 0.37), (int)(w * 0.50), (int)(w * 0.66), (int)(w * 0.76), (int)(w * 0.89) };
         string[] headers = { "terminal.col.series", "terminal.col.issuer", "terminal.col.rating", "terminal.col.coupon", "terminal.col.maturity", "terminal.col.ytm", "terminal.col.price", "terminal.col.holding" };
         int y = area.Y;
         for (int i = 0; i < cols.Length; i++)
@@ -470,12 +474,16 @@ internal sealed class TerminalMenu : IClickableMenu
         else
         {
             string flows = string.Join("  ·  ", Broker.BondFlows(selected).Take(4).Select(f => $"{ShortDate(f.Date)}: {Price(f.Total)}"));
-            Text(b, T("terminal.bond.flows", new { flows }), area.X, dy, Muted);
-            dy += 34;
+            foreach (string line in Wrap(T("terminal.bond.flows", new { flows }), area.Width).Take(2))
+            {
+                Text(b, line, area.X, dy, Muted);
+                dy += 30;
+            }
         }
 
-        Button(b, new Rectangle(area.Right - 260, dy - 70, 120, 48), T("terminal.buy"), () => OpenTicket(selected.Id, TradeSide.Buy));
-        Button(b, new Rectangle(area.Right - 130, dy - 70, 120, 48), T("terminal.sell"), () => OpenTicket(selected.Id, TradeSide.Sell),
+        dy += 8;
+        Button(b, new Rectangle(area.X, dy, 160, 52), T("terminal.buy"), () => OpenTicket(selected.Id, TradeSide.Buy));
+        Button(b, new Rectangle(area.X + 172, dy, 160, 52), T("terminal.sell"), () => OpenTicket(selected.Id, TradeSide.Sell),
             enabled: Broker.State.Bonds.ContainsKey(selected.Id));
     }
 
@@ -492,7 +500,7 @@ internal sealed class TerminalMenu : IClickableMenu
         Text(b, T("terminal.letras.title"), area.X, y);
         y += 40;
         int tableWidth = area.Width - 280;
-        int[] cols = { 0, (int)(tableWidth * 0.22), (int)(tableWidth * 0.46), (int)(tableWidth * 0.58), (int)(tableWidth * 0.74), (int)(tableWidth * 0.90) };
+        int[] cols = { 0, (int)(tableWidth * 0.20), (int)(tableWidth * 0.44), (int)(tableWidth * 0.54), (int)(tableWidth * 0.68), (int)(tableWidth * 0.88) };
         string[] headers = { "terminal.col.series", "terminal.col.maturity", "terminal.col.days", "terminal.col.price", "terminal.col.rate-monthly", "terminal.col.holding" };
         for (int i = 0; i < cols.Length; i++)
         {
@@ -513,10 +521,11 @@ internal sealed class TerminalMenu : IClickableMenu
             Button(b, new Rectangle(area.Right - 130, y - 8, 120, 44), T("terminal.sell"), () => OpenTicket(l.Id, TradeSide.Sell), enabled: held > 0);
             y += 50;
         }
+    }
 
-        y += 20;
-        b.Draw(Game1.staminaRect, new Rectangle(area.X, y, area.Width, 2), Muted * 0.5f);
-        y += 16;
+    private void DrawCauciones(SpriteBatch b, Rectangle area)
+    {
+        int y = area.Y;
         Text(b, T("terminal.caucion.title", new { rate = RateText(Broker.CaucionRate) }), area.X, y);
         y += 44;
         Text(b, T("terminal.caucion.term"), area.X, y + 10, Muted);
