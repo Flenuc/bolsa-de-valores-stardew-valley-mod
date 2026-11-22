@@ -11,7 +11,8 @@ internal static class NewsText
     public static string Issuer(ITranslationHelper i18n, EconomySimulation sim, string issuer) =>
         issuer == CreditEngine.Sovereign
             ? i18n.Get("issuer.sovereign")
-            : sim.Stocks.Find(issuer)?.Name ?? issuer;
+            : sim.Stocks.Find(issuer)?.Name
+                ?? (sim.Companies.State.Companies.FirstOrDefault(c => c.Ticker == issuer) is { } own ? CompanyMail.TypeName(i18n, own.Type) + " " + i18n.Get($"company.form.{own.Form}") : issuer);
 
     public static string Headline(ITranslationHelper i18n, EconomySimulation sim, NewsItem n)
     {

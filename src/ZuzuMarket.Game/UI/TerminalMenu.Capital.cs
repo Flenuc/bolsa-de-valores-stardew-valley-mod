@@ -79,8 +79,9 @@ internal sealed partial class TerminalMenu
     private void DrawIpo(SpriteBatch b, Rectangle area, CompanyState c, int y)
     {
         CapitalMarketRules rules = _sim.Data.PlayerCompanies.CapitalMarket;
-        decimal price = Companies.IpoPrice(c);
-        Text(b, T("terminal.capital.ipo-price", new { price = Money(price), eps = Formatting.Number(I18n, Companies.MarketEps(c), "0.000") }), area.X, y, Muted);
+        long primaryShares = rules.IpoShares * _primaryPct / 100;
+        decimal price = Companies.IpoPrice(c, primaryShares);
+        Text(b, T("terminal.capital.ipo-price", new { price = Money(price), eps = Formatting.Number(I18n, Companies.MarketEps(c, rules.IpoShares + primaryShares), "0.000") }), area.X, y, Muted);
         y += 34;
         Text(b, T("terminal.capital.primary"), area.X, y + 8, Muted);
         int x = area.X + 150;
@@ -127,13 +128,18 @@ internal sealed partial class TerminalMenu
         CapitalMarketRules rules = _sim.Data.PlayerCompanies.CapitalMarket;
         ListingState listing = c.Listing!;
         decimal price = Companies.MarketPrice(c);
-        Text(b, T("terminal.capital.listed-info", new
+        foreach (string line in Wrap(T("terminal.capital.listed-info", new
         {
             price = Money(price),
             cap = Money(price * listing.TotalShares),
             pct = Formatting.Percent(I18n, (double)listing.PlayerFraction),
-        }), area.X, y, Muted);
-        y += 34;
+        }), area.Width).Take(2))
+        {
+            Text(b, line, area.X, y, Muted);
+            y += 30;
+        }
+
+        y += 4;
         int x = area.X;
         foreach (long block in ShareBlocks)
         {

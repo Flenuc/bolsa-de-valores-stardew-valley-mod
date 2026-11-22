@@ -152,10 +152,10 @@ public class CapitalMarketTests
     public void Ipo_PrimaryGoesToTheCompany_SecondaryToThePlayer_AndTheStockTrades()
     {
         (EconomySimulation sim, CompanyState minera) = ProfitableSA();
-        decimal price = sim.Companies.IpoPrice(minera);
-        decimal fundamental = sim.Companies.FundamentalPrice(minera);
+        decimal price = sim.Companies.IpoPrice(minera, 20_000);
+        decimal fundamental = sim.Companies.FundamentalPrice(minera, 120_000);
         Assert.Equal(Math.Round(fundamental * 0.9m, 2), price);
-        Assert.Equal((double)sim.Companies.TrailingAnnualProfit(minera) / 100_000, sim.Companies.MarketEps(minera), 6);
+        Assert.Equal((double)sim.Companies.TrailingAnnualProfit(minera) / 120_000, sim.Companies.MarketEps(minera, 120_000), 6); // UPA diluida
 
         double merzu = sim.Stocks.Merzu;
         decimal companyCash = sim.Companies.Cash(minera);
@@ -172,6 +172,7 @@ public class CapitalMarketTests
         Assert.Equal(90_000, minera.Listing.PlayerShares);
         Assert.Equal(contributed * 0.9m, minera.Contributed);
         Assert.Contains(notices, n => n.Kind == CompanyNoticeKind.Listed && n.Detail == "MINA");
+        Assert.True(sim.Companies.MarketPrice(minera) >= price); // abre por encima de la colocación (no se cae por la dilución)
 
         // Cotiza en BYMZ, fuera del MERZU, y no se opera como especie.
         Assert.NotNull(sim.Stocks.Find("MINA"));

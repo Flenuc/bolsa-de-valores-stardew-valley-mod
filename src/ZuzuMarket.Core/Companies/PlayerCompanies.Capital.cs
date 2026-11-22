@@ -76,17 +76,21 @@ public sealed partial class PlayerCompanies
 
     private long SharesFor(CompanyState c) => c.Listing?.TotalShares ?? Capital.IpoShares;
 
-    /// <summary>UPA anual (con piso) que usa el mercado.</summary>
-    public double MarketEps(CompanyState c) =>
-        Math.Max(Capital.EpsFloor * _inflation.Index, (double)TrailingAnnualProfit(c) / SharesFor(c));
+    /// <summary>UPA anual (con piso) que usa el mercado; antes de cotizar, sobre <paramref name="shares"/> (post IPO).</summary>
+    public double MarketEps(CompanyState c, long? shares = null) =>
+        Math.Max(Capital.EpsFloor * _inflation.Index, (double)TrailingAnnualProfit(c) / (shares ?? SharesFor(c)));
 
     public double Pe(CompanyState c) => Rules.FindType(c.Type)?.Pe ?? 10;
 
-    /// <summary>Valor fundamental por acción: P/E del rubro × UPA.</summary>
-    public decimal FundamentalPrice(CompanyState c) => MoneyRounding.Round((decimal)(Pe(c) * MarketEps(c)));
+    /// <summary>Valor fundamental por acción: P/E del rubro × UPA (antes de cotizar, con las acciones post IPO).</summary>
+    public decimal FundamentalPrice(CompanyState c, long? shares = null) => MoneyRounding.Round((decimal)(Pe(c) * MarketEps(c, shares)));
 
-    /// <summary>Precio de colocación en la IPO (con descuento).</summary>
-    public decimal IpoPrice(CompanyState c) => MoneyRounding.Round(FundamentalPrice(c) * (1 - Capital.IpoDiscount));
+    /// <summary>
+    /// Precio de colocación en la IPO con <paramref name="primary"/> acciones nuevas: la ganancia se reparte entre
+    /// todas las acciones que habrá después de la emisión (dilución), con descuento.
+    /// </summary>
+    public decimal IpoPrice(CompanyState c, long primary = 0) =>
+        MoneyRounding.Round(FundamentalPrice(c, Capital.IpoShares + primary) * (1 - Capital.IpoDiscount));
 
     public decimal MarketPrice(CompanyState c) =>
         c.Listing is not null && c.Ticker is { } t ? MoneyRounding.Round((decimal)_stocks.PriceAt(t, MarketHours.Close)) : FundamentalPrice(c);
@@ -186,8 +190,8 @@ public sealed partial class PlayerCompanies
             return new CompanyResult(error);
         }
 
-        decimal price = IpoPrice(c);
-        double eps = MarketEps(c);
+        decimal price = IpoPrice(c, primary);
+        double eps = MarketEps(c, Capital.IpoShares + primary);
         if (primary > 0)
         {
             decimal gross = MoneyRounding.Round(price * primary);
