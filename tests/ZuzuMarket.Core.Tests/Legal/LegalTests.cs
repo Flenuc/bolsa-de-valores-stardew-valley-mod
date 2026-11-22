@@ -216,7 +216,10 @@ public class LegalTests
         sim.Broker.PlaceCaucion(1_000, 28, Monday, TenAm);
         sim.CreateTestDebt(500_000);
 
-        Advance(sim, new EconomicDate(1, Season.Summer, 3));
+        List<(EconomicDate Date, LegalDay Day)> ladder = Advance(sim, new EconomicDate(1, Season.Summer, 3));
+        Assert.True(ladder.Sum(d => d.Day.CashSeized) > 70_000); // el bolsillo (80.000) va a los acreedores…
+        Assert.Equal(500m, Balance(sim, SystemAccounts.Caja)); // …salvo el mínimo inembargable
+        Assert.Equal(0d, sim.Legal.State.Score);
         Assert.Empty(sim.Broker.State.Stocks);
         Assert.Empty(sim.Broker.State.Bonds);
         Assert.Empty(sim.Broker.State.Cauciones);

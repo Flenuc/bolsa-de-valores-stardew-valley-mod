@@ -204,7 +204,7 @@ public class TaxEngineTests
         TestData.AdvanceTo(sim, new EconomicDate(3, Season.Spring, 1));
         var advances = sim.Taxes.State.Obligations.Where(o => o.Kind == TaxKind.GananciasAnticipo).ToList();
         Assert.Equal(new[] { Season.Summer, Season.Fall, Season.Winter }, advances.Select(a => a.Period.Season));
-        Assert.All(advances, a => Assert.Equal(7_567, a.Principal));
+        Assert.All(advances, a => Assert.Equal(7_567, a.Issued)); // el jugador no paga nada y quiebra: se compara lo emitido
         Assert.Equal(2, advances[0].Period.Year);
 
         // En el año 2 no hubo ventas: el impuesto es 0 y los anticipos quedan como saldo a favor.

@@ -42,7 +42,7 @@ internal sealed partial class TerminalMenu
         {
             Text(b, label, area.X, y, Muted);
             TextRight(b, value, area.Right, y);
-            y += 36;
+            y += 32;
         }
 
         y += 14;
@@ -68,7 +68,7 @@ internal sealed partial class TerminalMenu
             }
         }, enabled: canConcurso == TradeError.None);
         y += 66;
-        foreach (string line in Wrap(T("terminal.credit.concurso-help"), area.Width).Take(4))
+        foreach (string line in Wrap(T("terminal.credit.concurso-help"), area.Width).Take(Math.Max(0, (area.Bottom - y) / 28)))
         {
             Text(b, line, area.X, y, Muted);
             y += 28;
@@ -102,42 +102,46 @@ internal sealed partial class TerminalMenu
         }
     }
 
+    /// <summary>Texto ajustado al ancho libre a la izquierda de un botón; devuelve la Y debajo de ambos.</summary>
+    private int StatusBeside(SpriteBatch b, string text, Color color, int x, int y, int width)
+    {
+        int lineY = y;
+        foreach (string line in Wrap(text, width).Take(3))
+        {
+            Text(b, line, x, lineY, color);
+            lineY += 28;
+        }
+
+        return Math.Max(lineY, y + 52) + 10;
+    }
+
     private void DrawLoanForm(SpriteBatch b, Rectangle area)
     {
         int y = area.Y;
         Text(b, T("terminal.credit.loan-title"), area.X, y);
         y += 40;
         Text(b, T("terminal.credit.term"), area.X, y + 10, Muted);
-        int x = area.X + 120;
+        int x = area.X + 100;
         foreach (int term in _sim.Data.Legal.LoanTerms)
         {
             int t = term;
-            Button(b, new Rectangle(x, y, 150, 46), T("terminal.credit.seasons", new { count = t }), () => _loanTerm = t, selected: _loanTerm == t);
-            x += 158;
+            Button(b, new Rectangle(x, y, 170, 46), T("terminal.credit.seasons", new { count = t }), () => _loanTerm = t, selected: _loanTerm == t);
+            x += 178;
         }
 
         y += 58;
         DrawAmountControls(b, area.X, y, Legal.LoanLimit, () => _loanAmount, v => _loanAmount = v);
         y += 62;
         LoanQuote quote = Legal.QuoteLoan(_loanAmount, _loanTerm, Date);
-        Text(b, T("terminal.credit.loan-quote", new
-        {
-            installment = Money(quote.Installment),
-            total = Money(quote.Installment * (long)_loanTerm),
-            rate = Formatting.Percent(I18n, quote.Rate),
-        }), area.X, y, quote.Error == TradeError.None ? Muted : Negative);
-        y += 34;
-        if (quote.Error != TradeError.None)
-        {
-            Text(b, T($"error.{quote.Error}"), area.X, y, Negative);
-        }
-
-        Button(b, new Rectangle(area.Right - 260, y - 6, 250, 52), T("terminal.credit.take-loan"), () =>
+        string loanText = quote.Error == TradeError.None
+            ? T("terminal.credit.loan-quote", new { installment = Money(quote.Installment), total = Money(quote.Installment * (long)_loanTerm) })
+            : T($"error.{quote.Error}");
+        Button(b, new Rectangle(area.Right - 230, y, 230, 52), T("terminal.credit.take-loan"), () =>
         {
             TradeError error = _actions.TakeLoan(_sim, _loanAmount, _loanTerm);
             Result(error, T("terminal.credit.loan-done", new { amount = Money(_loanAmount) }));
         }, enabled: quote.Error == TradeError.None);
-        y += 56;
+        y = StatusBeside(b, loanText, quote.Error == TradeError.None ? Muted : Negative, area.X, y, area.Width - 250);
 
         foreach (Loan loan in Legal.State.Loans)
         {
@@ -175,14 +179,14 @@ internal sealed partial class TerminalMenu
         y += 62;
         TradeError repoError = Broker.ValidateRepo(_repoAmount, _repoDays, Date, Time);
         (EconomicDate maturity, decimal interest) = Broker.RepoTerms(_repoAmount, _repoDays, Date);
-        Text(b, repoError == TradeError.None
+        string repoText = repoError == TradeError.None
             ? T("terminal.credit.repo-quote", new { date = ShortDate(maturity), total = Money(_repoAmount + interest) })
-            : T($"error.{repoError}"), area.X, y, repoError == TradeError.None ? Muted : Negative);
-        Button(b, new Rectangle(area.Right - 260, y - 6, 250, 52), T("terminal.credit.take-repo"), () =>
+            : T($"error.{repoError}");
+        Button(b, new Rectangle(area.Right - 230, y, 230, 52), T("terminal.credit.take-repo"), () =>
         {
             Result(Broker.BorrowRepo(_repoAmount, _repoDays, Date, Time), T("terminal.credit.repo-done"));
         }, enabled: repoError == TradeError.None);
-        y += 58;
+        y = StatusBeside(b, repoText, repoError == TradeError.None ? Muted : Negative, area.X, y, area.Width - 250);
         foreach (Caucion repo in Broker.State.Repos)
         {
             Text(b, T("terminal.credit.repo-active", new { amount = Money(repo.Principal), date = ShortDate(repo.Maturity), interest = Money(repo.Interest) }), area.X, y);

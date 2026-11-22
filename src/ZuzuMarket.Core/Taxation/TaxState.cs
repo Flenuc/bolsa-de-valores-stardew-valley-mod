@@ -87,6 +87,9 @@ public sealed class TaxObligation
     /// <summary>Capital en oro.</summary>
     public long Principal { get; set; }
 
+    /// <summary>Capital original al emitirse (no cambia con pagos ni intereses).</summary>
+    public long Issued { get; set; }
+
     /// <summary>Intereses resarcitorios devengados (se asientan al pagar).</summary>
     public decimal Interest { get; set; }
 

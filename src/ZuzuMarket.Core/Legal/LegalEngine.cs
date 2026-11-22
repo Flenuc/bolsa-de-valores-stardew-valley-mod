@@ -17,6 +17,9 @@ public sealed class LegalDay
     /// <summary>Oro de los cobros del cajón embargado hoy: el juego lo descuenta del bolsillo.</summary>
     public decimal Garnished { get; set; }
 
+    /// <summary>Oro del bolsillo aplicado a las deudas en la quiebra: el juego lo descuenta.</summary>
+    public decimal CashSeized { get; set; }
+
     /// <summary>Deuda a cubrir secuestrando objetos de los cofres (0 = nada).</summary>
     public decimal SeizureRequest { get; set; }
 
@@ -359,6 +362,12 @@ public sealed class LegalEngine
             PayDebts(Math.Floor(_broker.Cash), SystemAccounts.CuentaComitente, date);
         }
 
+        decimal pocket = Math.Floor(_ledger.GetBalance(Entity, SystemAccounts.Caja) - Rules.BankruptcyCashExempt);
+        if (pocket >= 1 && DebtInCollection >= 1)
+        {
+            day.CashSeized += PayDebts(pocket, SystemAccounts.Caja, date);
+        }
+
         SeizeSilo(date, day);
         _s.BankruptcyPending = true;
         _s.Events.Add(new LegalEvent(date, LegalEventKind.Bankruptcy));
@@ -419,6 +428,7 @@ public sealed class LegalEngine
         _s.CollectionSince = null;
         _s.LastSeizure = null;
         _s.Bankruptcies++;
+        _s.Score = 0;
         SetRating("D", date, day.Notices);
         day.Notices.Add(new LegalNotice(LegalNoticeKind.BankruptcyClosed, date, condoned, GameDateText(_s.InhabilitadoUntil.Value)));
     }
@@ -535,6 +545,7 @@ public sealed class LegalEngine
         _s.Events.RemoveAll(e => e.Date.DaysUntil(date) > EconomicDate.DaysPerYear * 2);
         if (_s.BankruptcyPending || IsInhabilitado(date))
         {
+            _s.Score = 0;
             SetRating("D", date, notices);
             return;
         }

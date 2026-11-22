@@ -31,6 +31,9 @@ public sealed class LegalRules
     /// <summary>Quita del concurso según la calificación del jugador.</summary>
     public Dictionary<string, decimal> ConcursoHaircut { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Oro del bolsillo que la quiebra no toca (mínimo inembargable).</summary>
+    public decimal BankruptcyCashExempt { get; set; } = 500m;
+
     /// <summary>Estaciones de inhabilitación después de una quiebra (÷ velocidad).</summary>
     public int InhabilitationSeasons { get; set; } = 4;
 

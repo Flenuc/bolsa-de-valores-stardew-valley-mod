@@ -17,6 +17,9 @@
   "concursoInstallments": 4,
   "concursoHaircut": { "AAA": 0.0, "AA": 0.0, "A": 0.05, "BBB": 0.10, "BB": 0.15, "B": 0.20, "CCC": 0.30, "D": 0.30 },
 
+  // Oro del bolsillo que la quiebra no toca (mínimo inembargable).
+  "bankruptcyCashExempt": 500,
+
   // Estaciones de inhabilitación después de una quiebra.
   "inhabilitationSeasons": 4,
 

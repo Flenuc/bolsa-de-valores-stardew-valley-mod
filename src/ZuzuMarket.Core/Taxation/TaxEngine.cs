@@ -615,6 +615,7 @@ public sealed class TaxEngine
             Kind = kind,
             Period = period,
             Principal = principal,
+            Issued = principal,
             IssuedOn = date,
             DueDate = due,
         };

@@ -172,7 +172,7 @@ internal sealed class ModEntry : Mod
             _config.AutoDebit ? Game1.player.Money : null);
 
         // El débito automático y el embargo de ingresos ya se asentaron: se descuenta el oro antes de conciliar.
-        long debited = info.AutoDebitTotal + (long)Math.Floor(info.Legal.Garnished);
+        long debited = info.AutoDebitTotal + (long)Math.Floor(info.Legal.Garnished) + (long)Math.Floor(info.Legal.CashSeized);
         if (debited > 0)
         {
             Game1.player.Money = Math.Max(0, Game1.player.Money - (int)debited);
