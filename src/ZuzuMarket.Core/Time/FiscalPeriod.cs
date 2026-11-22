@@ -20,5 +20,16 @@ public readonly record struct FiscalPeriod(int Year, Season Season)
 
     public bool Contains(EconomicDate date) => date.Year == Year && date.Season == Season;
 
+    /// <summary>Período que está <paramref name="seasons"/> estaciones después (o antes, si es negativo).</summary>
+    public FiscalPeriod AddSeasons(int seasons)
+    {
+        int index = ((Year - 1) * EconomicDate.SeasonsPerYear) + (int)Season + seasons;
+        return new FiscalPeriod((index / EconomicDate.SeasonsPerYear) + 1, (Season)(index % EconomicDate.SeasonsPerYear));
+    }
+
+    /// <summary>Estaciones desde <paramref name="other"/> hasta este período.</summary>
+    public int SeasonsSince(FiscalPeriod other) =>
+        (((Year - 1) * EconomicDate.SeasonsPerYear) + (int)Season) - (((other.Year - 1) * EconomicDate.SeasonsPerYear) + (int)other.Season);
+
     public override string ToString() => $"{EconomicDate.SeasonName(Season)} del año {Year}";
 }

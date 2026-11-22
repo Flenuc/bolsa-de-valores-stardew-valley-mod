@@ -1,0 +1,33 @@
+// Calificaciones crediticias (§10.2 de docs/DISENO.md).
+//   spread         spread mensual sobre la tasa de política del BCRF
+//   annualDefault  probabilidad anual de default de las empresas (× frecuencia de eventos negativos de la dificultad).
+//                  El soberano usa sovereignDefaultProbability de la dificultad (más alto si su calificación es peor que B).
+{
+  "scale": [
+    { "id": "AAA", "spread": 0.000, "annualDefault": 0.0002 },
+    { "id": "AA",  "spread": 0.001, "annualDefault": 0.0005 },
+    { "id": "A",   "spread": 0.002, "annualDefault": 0.001 },
+    { "id": "BBB", "spread": 0.004, "annualDefault": 0.003 },
+    { "id": "BB",  "spread": 0.008, "annualDefault": 0.01 },
+    { "id": "B",   "spread": 0.015, "annualDefault": 0.04 },
+    { "id": "CCC", "spread": 0.030, "annualDefault": 0.15 },
+    { "id": "D",   "spread": 0.000, "annualDefault": 1.0 }
+  ],
+
+  // Por estación: probabilidad de subir o bajar un escalón.
+  "upgradeProbability": 0.05,
+  "downgradeProbability": 0.05,
+
+  "sovereignByDifficulty": { "casual": "AA", "realista": "B", "argentina": "CCC" },
+  "companies": {
+    "JOJA": "A", "COAV": "BBB", "CALI": "BB", "GEMS": "BB", "FCVA": "BBB",
+    "ZUEN": "A", "BZUZ": "BBB", "GOTR": "BB", "DEST": "BBB", "CONS": "BB"
+  },
+
+  // Default: valor de recupero y canje a las N estaciones por un bono nuevo; calificación después del canje.
+  "sovereignRecovery": 0.30,
+  "corporateRecovery": 0.40,
+  "restructuringDelay": 2,
+  "sovereignAfterRestructuring": "CCC",
+  "corporateAfterRestructuring": "B"
+}

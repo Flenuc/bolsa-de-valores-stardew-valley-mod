@@ -32,6 +32,8 @@ public static class GameDataLoader
     public const string TaxesFile = "taxes.json";
     public const string CompaniesFile = "companies.json";
     public const string MarketsFile = "markets.json";
+    public const string RatingsFile = "ratings.json";
+    public const string BondsFile = "bonds.json";
 
     public static IReadOnlyList<string> RequiredDifficulties { get; } = new[] { "casual", "realista", "argentina" };
 
@@ -65,15 +67,17 @@ public static class GameDataLoader
         string? taxes = Read(TaxesFile);
         string? companies = Read(CompaniesFile);
         string? markets = Read(MarketsFile);
-        if (accounts is null || commodities is null || difficulties is null || events is null || taxes is null || companies is null || markets is null)
+        string? ratings = Read(RatingsFile);
+        string? bonds = Read(BondsFile);
+        if (accounts is null || commodities is null || difficulties is null || events is null || taxes is null || companies is null || markets is null || ratings is null || bonds is null)
         {
             return new DataLoadResult(null, errors);
         }
 
-        return LoadFromJson(accounts, commodities, difficulties, events, taxes, companies, markets);
+        return LoadFromJson(accounts, commodities, difficulties, events, taxes, companies, markets, ratings, bonds);
     }
 
-    public static DataLoadResult LoadFromJson(string accountsJson, string commoditiesJson, string difficultiesJson, string eventsJson = "[]", string? taxesJson = null, string? companiesJson = null, string? marketsJson = null)
+    public static DataLoadResult LoadFromJson(string accountsJson, string commoditiesJson, string difficultiesJson, string eventsJson = "[]", string? taxesJson = null, string? companiesJson = null, string? marketsJson = null, string? ratingsJson = null, string? bondsJson = null)
     {
         var errors = new List<string>();
         List<AccountDefinition>? accounts = Deserialize<List<AccountDefinition>>(accountsJson, AccountsFile, errors);
@@ -83,7 +87,9 @@ public static class GameDataLoader
         TaxRules? taxes = taxesJson is null ? new TaxRules() : Deserialize<TaxRules>(taxesJson, TaxesFile, errors);
         List<CompanyDefinition>? companies = companiesJson is null ? new List<CompanyDefinition>() : Deserialize<List<CompanyDefinition>>(companiesJson, CompaniesFile, errors);
         MarketRules? markets = marketsJson is null ? new MarketRules() : Deserialize<MarketRules>(marketsJson, MarketsFile, errors);
-        if (accounts is null || commodities is null || difficulties is null || events is null || taxes is null || companies is null || markets is null)
+        RatingRules? ratings = ratingsJson is null ? new RatingRules() : Deserialize<RatingRules>(ratingsJson, RatingsFile, errors);
+        List<BondTemplate>? bonds = bondsJson is null ? new List<BondTemplate>() : Deserialize<List<BondTemplate>>(bondsJson, BondsFile, errors);
+        if (accounts is null || commodities is null || difficulties is null || events is null || taxes is null || companies is null || markets is null || ratings is null || bonds is null)
         {
             return new DataLoadResult(null, errors);
         }
@@ -103,13 +109,20 @@ public static class GameDataLoader
             ValidateMarkets(markets, errors);
         }
 
+        if (ratingsJson is not null)
+        {
+            ValidateRatings(ratings, companies, difficulties, errors);
+        }
+
+        ValidateBonds(bonds, companies, errors);
+
         if (errors.Count > 0)
         {
             return new DataLoadResult(null, errors);
         }
 
         var chart = new ChartOfAccounts(accounts.Select(a => new Account(a.Code, a.Name, a.Type)));
-        return new DataLoadResult(new GameData(chart, commodities, difficulties, events, taxes, companies, markets), errors);
+        return new DataLoadResult(new GameData(chart, commodities, difficulties, events, taxes, companies, markets, ratings, bonds), errors);
     }
 
     private static T? Deserialize<T>(string json, string file, List<string> errors)
@@ -343,6 +356,69 @@ public static class GameDataLoader
                 {
                     errors.Add($"{CompaniesFile}: {c.Ticker} está expuesta a un destino inexistente: \"{target}\".");
                 }
+            }
+        }
+    }
+
+    private static void ValidateRatings(RatingRules r, List<CompanyDefinition> companies, List<DifficultyDefinition> difficulties, List<string> errors)
+    {
+        if (r.Scale.Count < 3)
+        {
+            errors.Add($"{RatingsFile}: la escala necesita al menos 3 calificaciones (la última es el default).");
+            return;
+        }
+
+        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (RatingLevel level in r.Scale)
+        {
+            if (string.IsNullOrWhiteSpace(level.Id) || !ids.Add(level.Id))
+            {
+                errors.Add($"{RatingsFile}: calificación vacía o duplicada ({level.Id}).");
+            }
+
+            if (level.Spread is < 0 or > 0.5 || level.AnnualDefault is < 0 or > 1)
+            {
+                errors.Add($"{RatingsFile}: {level.Id} tiene spread o annualDefault fuera de rango.");
+            }
+        }
+
+        IEnumerable<string> referenced = r.SovereignByDifficulty.Values.Concat(r.Companies.Values)
+            .Append(r.SovereignAfterRestructuring).Append(r.CorporateAfterRestructuring);
+        foreach (string rating in referenced.Where(x => !ids.Contains(x)).Distinct())
+        {
+            errors.Add($"{RatingsFile}: la calificación {rating} no está en la escala.");
+        }
+
+        foreach (string ticker in r.Companies.Keys.Where(t => companies.All(c => !string.Equals(c.Ticker, t, StringComparison.OrdinalIgnoreCase))))
+        {
+            errors.Add($"{RatingsFile}: la empresa {ticker} no existe.");
+        }
+
+        if (r.SovereignRecovery is < 0 or > 1 || r.CorporateRecovery is < 0 or > 1 || r.RestructuringDelay < 1)
+        {
+            errors.Add($"{RatingsFile}: recupero fuera de [0, 1] o restructuringDelay < 1.");
+        }
+    }
+
+    private static void ValidateBonds(List<BondTemplate> bonds, List<CompanyDefinition> companies, List<string> errors)
+    {
+        var prefixes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (BondTemplate b in bonds)
+        {
+            if (string.IsNullOrWhiteSpace(b.Prefix) || !prefixes.Add(b.Prefix))
+            {
+                errors.Add($"{BondsFile}: prefijo vacío o duplicado ({b.Prefix}).");
+            }
+
+            bool issuerOk = b.Issuer == CreditEngine.Sovereign || companies.Any(c => c.Ticker == b.Issuer);
+            if (!issuerOk)
+            {
+                errors.Add($"{BondsFile}: {b.Prefix} tiene un emisor inexistente: {b.Issuer}.");
+            }
+
+            if (b.TenorSeasons < 1 || b.AmortizationInstallments < 1 || b.AmortizationInstallments > b.TenorSeasons || b.Coupon is < -0.05 or > 0.5)
+            {
+                errors.Add($"{BondsFile}: {b.Prefix} tiene plazo, amortización o cupón inválidos.");
             }
         }
     }

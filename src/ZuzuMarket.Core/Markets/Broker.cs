@@ -1,6 +1,7 @@
 using System.Globalization;
 using ZuzuMarket.Core.Data;
 using ZuzuMarket.Core.Ledger;
+using ZuzuMarket.Core.Macro;
 using ZuzuMarket.Core.Money;
 using ZuzuMarket.Core.Taxation;
 using ZuzuMarket.Core.Time;
@@ -45,7 +46,7 @@ public sealed record TradeQuote(
 /// ALyC Valle Inversiones: cuenta comitente, compra y venta de acciones y Letras, cauciones colocadoras,
 /// dividendos y vencimientos. Todo se asienta en el libro de la entidad <see cref="LedgerEntities.Jugador"/>.
 /// </summary>
-public sealed class Broker
+public sealed partial class Broker
 {
     private const string Entity = LedgerEntities.Jugador;
 
@@ -53,16 +54,20 @@ public sealed class Broker
     private readonly MarketsState _s;
     private readonly GeneralLedger _ledger;
     private readonly StockMarket _stocks;
-    private readonly Func<double> _inflationRate;
+    private readonly CentralBank _centralBank;
+    private readonly CreditEngine _credit;
+    private readonly InflationModel _inflation;
     private readonly Func<TaxRegime> _regime;
 
-    public Broker(GameData data, MarketsState state, GeneralLedger ledger, StockMarket stocks, Func<double> inflationRate, Func<TaxRegime> regime)
+    public Broker(GameData data, MarketsState state, GeneralLedger ledger, StockMarket stocks, CentralBank centralBank, CreditEngine credit, InflationModel inflation, Func<TaxRegime> regime)
     {
         _data = data;
         _s = state;
         _ledger = ledger;
         _stocks = stocks;
-        _inflationRate = inflationRate;
+        _centralBank = centralBank;
+        _credit = credit;
+        _inflation = inflation;
         _regime = regime;
     }
 
@@ -77,13 +82,18 @@ public sealed class Broker
 
     // ───────────────────────────── Tasas ─────────────────────────────
 
-    /// <summary>Tasa de referencia mensual (por 28 días): inflación del período + tasa real.</summary>
-    public double ReferenceRate => Math.Max(Rules.MinimumRate, _inflationRate() + Rules.RealRate);
+    /// <summary>Tasa de referencia mensual (por 28 días): la tasa de política del BCRF.</summary>
+    public double ReferenceRate => Math.Max(Rules.MinimumRate, _centralBank.PolicyRate);
 
     public double CaucionRate => ReferenceRate * Rules.CaucionRateFactor;
 
-    public double LetraRate(LetraSeries series) =>
-        ReferenceRate + (Rules.LetraTenors.FirstOrDefault(t => t.Days == series.TenorDays)?.Premium ?? 0);
+    /// <summary>Curva: tasa de política + prima por plazo + spread de crédito del emisor (mensual).</summary>
+    public double Yield(int days, string issuer) => ReferenceRate + Rules.Premium(days) + _credit.Spread(issuer);
+
+    /// <summary>Riesgo país en puntos básicos anuales.</summary>
+    public double CountryRiskBps => _credit.CountryRiskBps;
+
+    public double LetraRate(LetraSeries series) => Yield(series.TenorDays, CreditEngine.Sovereign);
 
     // ───────────────────────────── Cuenta ─────────────────────────────
 
@@ -187,23 +197,60 @@ public sealed class Broker
             return _stocks.PriceAt(company.Ticker, timeOfDay);
         }
 
+        if (FindBond(instrument) is { } bond)
+        {
+            return BondPrice(bond, date);
+        }
+
         return FindLetra(instrument) is { } letra && letra.Maturity > date ? LetraPrice(letra, date) : null;
     }
+
+    private (InstrumentKind Kind, string Id) Resolve(string instrument)
+    {
+        if (_stocks.Find(instrument) is { } company)
+        {
+            return (InstrumentKind.Stock, company.Ticker);
+        }
+
+        if (FindBond(instrument) is { } bond)
+        {
+            return (InstrumentKind.Bond, bond.Id);
+        }
+
+        return (InstrumentKind.Letra, FindLetra(instrument)?.Id ?? instrument);
+    }
+
+    private Dictionary<string, Holding> Book(InstrumentKind kind) => kind switch
+    {
+        InstrumentKind.Stock => _s.Broker.Stocks,
+        InstrumentKind.Bond => _s.Broker.Bonds,
+        _ => _s.Broker.Letras,
+    };
+
+    private static string AssetAccount(InstrumentKind kind) => kind switch
+    {
+        InstrumentKind.Stock => SystemAccounts.Acciones,
+        InstrumentKind.Bond => SystemAccounts.Bonos,
+        _ => SystemAccounts.Letras,
+    };
 
     /// <summary>Cotiza una orden de mercado. Devuelve los costos aunque haya un error, para mostrarlos.</summary>
     public TradeQuote Quote(string instrument, TradeSide side, long quantity, EconomicDate date, int timeOfDay)
     {
         CompanyDefinition? company = _stocks.Find(instrument);
-        LetraSeries? letra = company is null ? FindLetra(instrument) : null;
-        InstrumentKind kind = company is null ? InstrumentKind.Letra : InstrumentKind.Stock;
-        string id = company?.Ticker ?? letra?.Id ?? instrument;
+        (InstrumentKind kind, string id) = Resolve(instrument);
         double? mid = MidPrice(id, date, timeOfDay);
         if (mid is null)
         {
             return new TradeQuote(kind, id, side, quantity, 0, 0, 0, 0, 0, TradeError.UnknownInstrument);
         }
 
-        double spread = kind == InstrumentKind.Stock ? Rules.StockSpread : Rules.LetraSpread;
+        double spread = kind switch
+        {
+            InstrumentKind.Stock => Rules.StockSpread,
+            InstrumentKind.Bond => Rules.BondSpread,
+            _ => Rules.LetraSpread,
+        };
         double impact = company is null ? 0 : Math.Min(Rules.MaxImpact, Rules.ImpactCoefficient * quantity / Math.Max(1, company.AverageVolume));
         double sign = side == TradeSide.Buy ? 1 : -1;
         decimal unit = MoneyRounding.Round((decimal)(mid.Value * (1 + (sign * ((spread / 2) + impact)))));
@@ -225,8 +272,8 @@ public sealed class Broker
             return q;
         }
 
-        Dictionary<string, Holding> book = q.Kind == InstrumentKind.Stock ? _s.Broker.Stocks : _s.Broker.Letras;
-        string assetAccount = q.Kind == InstrumentKind.Stock ? SystemAccounts.Acciones : SystemAccounts.Letras;
+        Dictionary<string, Holding> book = Book(q.Kind);
+        string assetAccount = AssetAccount(q.Kind);
         bool ri = _regime() == TaxRegime.ResponsableInscripto;
         decimal feeExpense = q.Commission + q.MarketFee + (ri ? 0 : q.Iva);
         var args = new Dictionary<string, string>
@@ -440,8 +487,9 @@ public sealed class Broker
     {
         double stocks = _s.Broker.Stocks.Sum(kv => (_stocks.Find(kv.Key) is null ? 0 : _stocks.PriceAt(kv.Key, timeOfDay)) * kv.Value.Quantity);
         double letras = _s.Broker.Letras.Sum(kv => (FindLetra(kv.Key) is { } l ? LetraPrice(l, date) : 0) * kv.Value.Quantity);
+        double bonds = _s.Broker.Bonds.Sum(kv => (FindBond(kv.Key) is { } b ? BondPrice(b, date) : 0) * kv.Value.Quantity);
         decimal cauciones = _s.Broker.Cauciones.Sum(c => c.Principal);
-        return MoneyRounding.Round((decimal)(stocks + letras)) + cauciones;
+        return MoneyRounding.Round((decimal)(stocks + letras + bonds)) + cauciones;
     }
 
     private TradeError Validate(InstrumentKind kind, string id, TradeSide side, long quantity, EconomicDate date, int timeOfDay, decimal buyTotal)
@@ -466,7 +514,7 @@ public sealed class Broker
             return buyTotal > Cash ? TradeError.InsufficientFunds : TradeError.None;
         }
 
-        Dictionary<string, Holding> book = kind == InstrumentKind.Stock ? _s.Broker.Stocks : _s.Broker.Letras;
+        Dictionary<string, Holding> book = Book(kind);
         return book.TryGetValue(id, out Holding? holding) && holding.Quantity >= quantity ? TradeError.None : TradeError.InsufficientHoldings;
     }
 

@@ -79,6 +79,7 @@ public enum InstrumentKind
 {
     Stock,
     Letra,
+    Bond,
 }
 
 public sealed record Trade(
@@ -104,6 +105,9 @@ public sealed class BrokerState
     public Dictionary<string, Holding> Stocks { get; set; } = new();
 
     public Dictionary<string, Holding> Letras { get; set; } = new();
+
+    /// <summary>Bonos soberanos y obligaciones negociables.</summary>
+    public Dictionary<string, Holding> Bonds { get; set; } = new();
 
     public List<Caucion> Cauciones { get; set; } = new();
 
@@ -132,6 +136,13 @@ public sealed class MarketsState
     public List<LetraSeries> Letras { get; set; } = new();
 
     public BrokerState Broker { get; set; } = new();
+
+    public bool BondsStarted { get; set; }
+
+    public List<BondSeries> Bonds { get; set; } = new();
+
+    /// <summary>Calificación y situación de cada emisor (el soberano y las empresas).</summary>
+    public Dictionary<string, IssuerState> Issuers { get; set; } = new();
 }
 
 public enum MarketNoticeKind
@@ -140,6 +151,9 @@ public enum MarketNoticeKind
     LetraMatured,
     CaucionMatured,
     LetrasIssued,
+    Coupon,
+    BondMatured,
+    Exchange,
 }
 
 /// <summary>Algo del mercado que el juego debe comunicar (dividendo cobrado, vencimiento, licitación).</summary>

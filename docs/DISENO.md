@@ -158,6 +158,11 @@ haya originado el mod (compra en tienda, venta, regalo) se detecta y se asienta 
 - El jugador ve precio **nominal** y **real** (a moneda constante del año 1).
 
 ### 5.2 Tasa de política monetaria (BCRF)
+
+> **Implementado en la Fase 4** (`Core/Macro/CentralBank.cs`): regla de Taylor mensual = inflación esperada + 0,4% real
+> + 0,5 × (inflación − meta), meta = `inflationMin` de la dificultad, piso 0,2% y como máximo ±2 puntos por reunión
+> (una por estación). La emisión monetaria fuerza una suba extraordinaria de 1 punto. Curva = tasa de política + prima por
+> plazo + spread de la calificación del emisor.
 - Tasa de referencia que el BCRF ajusta cada estación según inflación (regla de Taylor simplificada) y eventos.
 - Determina: tasa de cauciones, rendimiento de letras, piso de la curva de bonos, costo del crédito.
 
@@ -358,6 +363,13 @@ La ARF/ARPV/Municipalidad envían la boleta por **correo**; se paga en la termin
 
 Valuación: flujos descontados a `curva soberana + spread por calificación`. Probabilidad de default por calificación;
 en default: cupones suspendidos, precio cae al valor de recupero esperado, posible canje.
+
+> **Implementado en la Fase 4** (`Core/Markets/Bonds.cs`, `Credit.cs`, datos en `bonds.json` y `ratings.json`): bonos
+> soberanos BOFE (fijo), BOVA (BCRF + margen) y BOCER (CER-F + cupón real, 4 cuotas) y ON de JOJA, BZUZ, CALI, ZUEN y
+> CONS; se emite una serie de cada uno al arrancar y cada primavera. Precio = VP de los flujos a la curva, TIR y
+> duración. Calificaciones AAA…D con migraciones por estación; soberano inicial AA/B/CCC según la dificultad. Default:
+> sin cupones, precio al recupero (30% soberano, 40% empresas) y la acción se desploma; a las 2 estaciones, canje por un
+> bono nuevo (cupón 0,5%, 12 estaciones, 4 cuotas) con la tenencia × recupero y el costo heredado.
 
 ### 10.3 Renta variable y derivados
 

@@ -9,6 +9,7 @@ using ZuzuMarket.Core.Markets;
 using ZuzuMarket.Core.Simulation;
 using ZuzuMarket.Core.Time;
 using ZuzuMarket.Game.Bridges;
+using ZuzuMarket.Game.Content;
 
 namespace ZuzuMarket.Game.UI;
 
@@ -51,6 +52,9 @@ internal sealed class TerminalMenu : IClickableMenu
     private Ticket? _ticket;
     private long _amount = 100;
     private int _caucionDays = 7;
+    private int _fixedIncomeTab;
+    private int _bondPage;
+    private string _selectedBond = "";
     private string? _message;
     private Color _messageColor;
 
@@ -234,6 +238,7 @@ internal sealed class TerminalMenu : IClickableMenu
         var rows = new List<(string Label, string Value)>
         {
             (T("terminal.panel.reference"), RateText(Broker.ReferenceRate)),
+            (T("terminal.panel.country-risk"), T("terminal.panel.bps", new { bps = Formatting.Number(I18n, Broker.CountryRiskBps, "#,0") }) + " · " + Broker.Rating(CreditEngine.Sovereign)),
             (T("terminal.panel.caucion"), RateText(Broker.CaucionRate)),
             (T("terminal.panel.inflation"), Formatting.Percent(I18n, _sim.Inflation.PeriodRate)),
             (T("terminal.panel.ipc"), Formatting.Number(I18n, _sim.Inflation.Index)),
@@ -253,6 +258,14 @@ internal sealed class TerminalMenu : IClickableMenu
             y += 38;
         }
 
+        // Curva soberana: TIR mensual por plazo.
+        y += 8;
+        Text(b, T("terminal.panel.curve"), area.X, y, Muted);
+        int[] tenors = { 28, 56, 112, 224, 448, 896, 1344 };
+        int curveHeight = Math.Max(60, area.Bottom - (y + 40));
+        Chart(b, new Rectangle(area.X, y + 34, col2 - 60 - area.X, Math.Min(curveHeight, 150)),
+            tenors.Select(d => Broker.Yield(d, CreditEngine.Sovereign)).ToList(), label: v => Formatting.Percent(I18n, v));
+
         var history = _sim.Stocks.State.MerzuHistory;
         Text(b, T("terminal.panel.chart"), col2, area.Y, Muted);
         Chart(b, new Rectangle(col2, area.Y + 40, area.Right - col2, 200), history.Skip(Math.Max(0, history.Count - 28)).Select(h => h.Value).ToList(), isIndex: true);
@@ -267,9 +280,7 @@ internal sealed class TerminalMenu : IClickableMenu
 
         foreach (NewsItem n in _sim.Events.State.News.Skip(Math.Max(0, _sim.Events.State.News.Count - 5)).Reverse())
         {
-            string text = n.Kind == NewsKind.Event
-                ? T($"event.{n.Key}.headline")
-                : T("news.inflation.short", new { rate = Formatting.Percent(I18n, n.Value) });
+            string text = NewsText.Headline(I18n, _sim, n);
             foreach (string line in Wrap(text, area.Right - col2).Take(2))
             {
                 Text(b, line, col2, ny);
@@ -350,6 +361,132 @@ internal sealed class TerminalMenu : IClickableMenu
     }
 
     private void DrawFixedIncome(SpriteBatch b, Rectangle area)
+    {
+        string[] tabs = { "terminal.fi.letras", "terminal.fi.sovereign", "terminal.fi.corporate" };
+        int x = area.X;
+        for (int i = 0; i < tabs.Length; i++)
+        {
+            int index = i;
+            string label = T(tabs[i]);
+            int w = (int)Game1.smallFont.MeasureString(label).X + 36;
+            Button(b, new Rectangle(x, area.Y, w, 46), label, () =>
+            {
+                _fixedIncomeTab = index;
+                _bondPage = 0;
+            }, selected: _fixedIncomeTab == i);
+            x += w + 8;
+        }
+
+        var inner = new Rectangle(area.X, area.Y + 62, area.Width, area.Height - 62);
+        if (_fixedIncomeTab == 0)
+        {
+            DrawLetras(b, inner);
+        }
+        else
+        {
+            DrawBonds(b, inner, sovereign: _fixedIncomeTab == 1);
+        }
+    }
+
+    private void DrawBonds(SpriteBatch b, Rectangle area, bool sovereign)
+    {
+        const int pageSize = 6;
+        IReadOnlyList<BondSeries> bonds = Broker.ActiveBonds(sovereign);
+        int pages = Math.Max(1, (bonds.Count + pageSize - 1) / pageSize);
+        _bondPage = Math.Clamp(_bondPage, 0, pages - 1);
+        if (bonds.Count > 0 && bonds.All(x => x.Id != _selectedBond))
+        {
+            _selectedBond = bonds[0].Id;
+        }
+
+        int w = area.Width;
+        int[] cols = { 0, (int)(w * 0.13), (int)(w * 0.33), (int)(w * 0.42), (int)(w * 0.55), (int)(w * 0.68), (int)(w * 0.79), (int)(w * 0.90) };
+        string[] headers = { "terminal.col.series", "terminal.col.issuer", "terminal.col.rating", "terminal.col.coupon", "terminal.col.maturity", "terminal.col.ytm", "terminal.col.price", "terminal.col.holding" };
+        int y = area.Y;
+        for (int i = 0; i < cols.Length; i++)
+        {
+            Text(b, T(headers[i]), area.X + cols[i], y, Muted);
+        }
+
+        y += 36;
+        foreach (BondSeries bond in bonds.Skip(_bondPage * pageSize).Take(pageSize))
+        {
+            var row = new Rectangle(area.X - 8, y - 4, area.Width + 16, 38);
+            if (bond.Id == _selectedBond)
+            {
+                b.Draw(Game1.staminaRect, row, Color.Wheat * 0.6f);
+            }
+
+            Hotspot(row, () => _selectedBond = bond.Id);
+            bool defaulted = Broker.IsDefaulted(bond);
+            long held = Broker.State.Bonds.TryGetValue(bond.Id, out Holding? h) ? h.Quantity : 0;
+            Text(b, bond.Id, area.X + cols[0], y);
+            Text(b, Ellipsis(NewsText.Issuer(I18n, _sim, bond.Issuer), cols[2] - cols[1] - 10), area.X + cols[1], y);
+            Text(b, defaulted ? "D" : Broker.Rating(bond.Issuer), area.X + cols[2], y, defaulted ? Negative : Game1.textColor);
+            Text(b, CouponText(bond), area.X + cols[3], y);
+            Text(b, ShortDate(bond.Maturity), area.X + cols[4], y);
+            Text(b, defaulted ? "-" : Formatting.Percent(I18n, Broker.BondYield(bond, Date)), area.X + cols[5], y);
+            Text(b, Price(Broker.BondPrice(bond, Date)), area.X + cols[6], y);
+            Text(b, held > 0 ? held.ToString("#,0", Formatting.Culture(I18n)) : "-", area.X + cols[7], y);
+            y += 40;
+        }
+
+        if (bonds.Count == 0)
+        {
+            Text(b, T("terminal.bonds.none"), area.X, y, Muted);
+        }
+
+        int py = area.Y + 36 + (pageSize * 40) + 4;
+        if (pages > 1)
+        {
+            Button(b, new Rectangle(area.X, py, 150, 40), T("terminal.page.prev"), () => _bondPage--, enabled: _bondPage > 0);
+            Text(b, $"{_bondPage + 1}/{pages}", area.X + 170, py + 8, Muted);
+            Button(b, new Rectangle(area.X + 230, py, 150, 40), T("terminal.page.next"), () => _bondPage++, enabled: _bondPage < pages - 1);
+        }
+
+        // Detalle de la serie elegida: duración, próximos pagos y operar.
+        BondSeries? selected = Broker.FindBond(_selectedBond);
+        if (selected is null)
+        {
+            return;
+        }
+
+        int dy = py + 56;
+        b.Draw(Game1.staminaRect, new Rectangle(area.X, dy - 8, area.Width, 2), Muted * 0.5f);
+        bool isDefaulted = Broker.IsDefaulted(selected);
+        Text(b, T("terminal.bond.detail", new
+        {
+            id = selected.Id,
+            type = T($"terminal.bond.type.{selected.Type}"),
+            duration = Formatting.Number(I18n, Broker.BondDuration(selected, Date), "0.0"),
+            amortization = selected.AmortizationInstallments == 1 ? T("terminal.bond.bullet") : T("terminal.bond.installments", new { count = selected.AmortizationInstallments }),
+        }), area.X, dy, isDefaulted ? Negative : Game1.textColor);
+        dy += 34;
+        if (isDefaulted)
+        {
+            Text(b, T("terminal.bond.defaulted"), area.X, dy, Negative);
+            dy += 34;
+        }
+        else
+        {
+            string flows = string.Join("  ·  ", Broker.BondFlows(selected).Take(4).Select(f => $"{ShortDate(f.Date)}: {Price(f.Total)}"));
+            Text(b, T("terminal.bond.flows", new { flows }), area.X, dy, Muted);
+            dy += 34;
+        }
+
+        Button(b, new Rectangle(area.Right - 260, dy - 70, 120, 48), T("terminal.buy"), () => OpenTicket(selected.Id, TradeSide.Buy));
+        Button(b, new Rectangle(area.Right - 130, dy - 70, 120, 48), T("terminal.sell"), () => OpenTicket(selected.Id, TradeSide.Sell),
+            enabled: Broker.State.Bonds.ContainsKey(selected.Id));
+    }
+
+    private string CouponText(BondSeries bond) => bond.Type switch
+    {
+        BondType.Floating => T("terminal.coupon.floating", new { margin = Formatting.Percent(I18n, bond.CouponRate) }),
+        BondType.Cer => T("terminal.coupon.cer", new { real = Formatting.Percent(I18n, bond.CouponRate) }),
+        _ => Formatting.Percent(I18n, bond.CouponRate),
+    };
+
+    private void DrawLetras(SpriteBatch b, Rectangle area)
     {
         int y = area.Y;
         Text(b, T("terminal.letras.title"), area.X, y);
@@ -460,13 +597,21 @@ internal sealed class TerminalMenu : IClickableMenu
             }
         }
 
+        foreach ((string id, Holding h) in Broker.State.Bonds)
+        {
+            if (Broker.FindBond(id) is { } bond)
+            {
+                Row(id, h, Broker.BondPrice(bond, Date));
+            }
+        }
+
         foreach (Caucion c in Broker.State.Cauciones)
         {
             Text(b, T("terminal.caucion.active", new { amount = Money(c.Principal), date = GameDateBridge.Format(I18n, c.Maturity), interest = Money(c.Interest) }), area.X, y);
             y += 36;
         }
 
-        if (Broker.State.Stocks.Count + Broker.State.Letras.Count + Broker.State.Cauciones.Count == 0)
+        if (Broker.State.Stocks.Count + Broker.State.Letras.Count + Broker.State.Bonds.Count + Broker.State.Cauciones.Count == 0)
         {
             Text(b, T("terminal.portfolio.empty"), area.X, y, Muted);
             y += 40;
@@ -632,7 +777,9 @@ internal sealed class TerminalMenu : IClickableMenu
     {
         if (ticket.Side == TradeSide.Sell)
         {
-            var book = _sim.Stocks.Find(ticket.Instrument) is null ? Broker.State.Letras : Broker.State.Stocks;
+            var book = _sim.Stocks.Find(ticket.Instrument) is not null ? Broker.State.Stocks
+                : Broker.FindBond(ticket.Instrument) is not null ? Broker.State.Bonds
+                : Broker.State.Letras;
             return book.TryGetValue(ticket.Instrument, out Holding? h) ? Math.Max(1, h.Quantity) : 1;
         }
 
@@ -742,7 +889,7 @@ internal sealed class TerminalMenu : IClickableMenu
     }
 
     /// <summary>Gráfico de línea simple con mínimo y máximo.</summary>
-    private void Chart(SpriteBatch b, Rectangle area, IReadOnlyList<double> values, bool isIndex = false)
+    private void Chart(SpriteBatch b, Rectangle area, IReadOnlyList<double> values, bool isIndex = false, Func<double, string>? label = null)
     {
         b.Draw(Game1.staminaRect, area, Color.Black * 0.08f);
         if (values.Count < 2)
@@ -768,7 +915,7 @@ internal sealed class TerminalMenu : IClickableMenu
                 (float)Math.Atan2(d.Y, d.X), Vector2.Zero, SpriteEffects.None, 0f);
         }
 
-        string Label(double v) => isIndex ? Formatting.Number(I18n, v, "#,0.00") : Price(v);
+        string Label(double v) => label is not null ? label(v) : isIndex ? Formatting.Number(I18n, v, "#,0.00") : Price(v);
         Text(b, Label(max), area.Right - 6 - (int)Game1.smallFont.MeasureString(Label(max)).X, area.Y + 2, Muted);
         Text(b, Label(min), area.Right - 6 - (int)Game1.smallFont.MeasureString(Label(min)).X, area.Bottom - 30, Muted);
     }

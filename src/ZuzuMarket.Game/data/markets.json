@@ -16,11 +16,38 @@
   // Retención sobre dividendos (pago único y definitivo para personas humanas).
   "dividendWithholding": 0.07,
 
-  // Tasa de referencia mensual = inflación del período + realRate (mínimo minimumRate).
+  // Piso de la tasa de referencia (la fija el BCRF; realRate quedó de la Fase 3 y ya no se usa).
   "realRate": 0.005,
   "minimumRate": 0.001,
 
+  // BCRF: regla de Taylor mensual = inflación esperada + neutralRealRate + phi × (inflación − meta).
+  // La meta es inflationMin de la dificultad. Se mueve como máximo maxStep por reunión (una por estación).
+  "centralBank": {
+    "neutralRealRate": 0.004,
+    "phi": 0.5,
+    "floor": 0.002,
+    "maxStep": 0.02,
+    "emissionHike": 0.01
+  },
+
+  // Curva: rendimiento mensual = tasa de política + prima por plazo + spread de la calificación del emisor.
+  "termPremium": [
+    { "days": 1,    "premium": 0.0 },
+    { "days": 28,   "premium": 0.0 },
+    { "days": 112,  "premium": 0.003 },
+    { "days": 224,  "premium": 0.005 },
+    { "days": 448,  "premium": 0.008 },
+    { "days": 1344, "premium": 0.012 }
+  ],
+
+  // Bonos y ON: spread bid/ask y el bono que se entrega en un canje (cupón por estación, plazo y cuotas).
+  "bondSpread": 0.003,
+  "restructuredCoupon": 0.005,
+  "restructuredTenor": 12,
+  "restructuredInstallments": 4,
+
   // Letras del Tesoro de Ferngill (LEFE): cupón cero, VN 100, se licitan al empezar cada estación.
+  // La tasa sale de la curva (más el riesgo país); "premium" quedó de la Fase 3 y ya no se usa.
   "letraTenors": [
     { "days": 28,  "premium": 0.0 },
     { "days": 56,  "premium": 0.002 },

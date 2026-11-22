@@ -43,7 +43,9 @@ public sealed record DayStartedInfo(
     IReadOnlyList<InflationRecord> PublishedInflation,
     IReadOnlyList<TaxNotice> TaxNotices,
     IReadOnlyList<MarketNotice> MarketNotices,
-    IReadOnlyList<AutoDebitPayment> AutoDebited)
+    IReadOnlyList<AutoDebitPayment> AutoDebited,
+    IReadOnlyList<RateDecision> RateDecisions,
+    IReadOnlyList<CreditEvent> CreditEvents)
 {
     /// <summary>Oro total que el juego tiene que descontarle al jugador por el débito automático.</summary>
     public long AutoDebitTotal => AutoDebited.Sum(p => p.Amount);
@@ -60,6 +62,10 @@ public sealed class EconomySimulation
 {
     public const string InflationStream = "inflacion";
     public const string EventsStream = "eventos";
+    public const string CreditStream = "credito";
+
+    /// <summary>Caída del sentimiento de una empresa que entra en default (≈ −78% en la acción).</summary>
+    public const double DefaultEquityShock = -1.5;
 
     private readonly WorldState _state;
     private readonly ISimulationLog _log;
@@ -75,7 +81,9 @@ public sealed class EconomySimulation
         Events = new EventEngine(data, state.Events);
         Taxes = new TaxEngine(data, state.Taxes, ledger, Difficulty);
         Stocks = new StockMarket(data, state.Markets);
-        Broker = new Broker(data, state.Markets, ledger, Stocks, () => Inflation.PeriodRate, () => Taxes.Regime);
+        CentralBank = new CentralBank(state.CentralBank, data.Markets.CentralBank);
+        Credit = new CreditEngine(data, state.Markets.Issuers);
+        Broker = new Broker(data, state.Markets, ledger, Stocks, CentralBank, Credit, Inflation, () => Taxes.Regime);
 
         if (!Inflation.HasStarted)
         {
@@ -85,11 +93,25 @@ public sealed class EconomySimulation
 
         RecalculatePrices();
 
+        if (!CentralBank.Started)
+        {
+            // Partida nueva, o del esquema 4 que recién migra: primera tasa según la regla.
+            CentralBank.Start(state.CurrentDate, Inflation.PeriodRate, Difficulty);
+        }
+
+        Credit.Initialize(Difficulty);
+
         if (!Stocks.Started)
         {
             // Partida nueva, o partida del esquema 3 que recién migra: la bolsa arranca hoy.
             Stocks.Start(state.CurrentDate, Market, Inflation.Index);
             Broker.IssueLetras(state.CurrentDate);
+        }
+
+        if (!state.Markets.BondsStarted)
+        {
+            Broker.IssueBonds(state.CurrentDate);
+            state.Markets.BondsStarted = true;
         }
     }
 
@@ -106,6 +128,10 @@ public sealed class EconomySimulation
     public TaxEngine Taxes { get; }
 
     public StockMarket Stocks { get; }
+
+    public CentralBank CentralBank { get; }
+
+    public CreditEngine Credit { get; }
 
     public Broker Broker { get; }
 
@@ -197,6 +223,8 @@ public sealed class EconomySimulation
         var published = new List<InflationRecord>();
         var taxNotices = new List<TaxNotice>();
         var marketNotices = new List<MarketNotice>();
+        _rateDecisions = new List<RateDecision>();
+        _creditEvents = new List<CreditEvent>();
 
         if (daysAdvanced < 0)
         {
@@ -229,7 +257,7 @@ public sealed class EconomySimulation
 
         bool newPeriod = daysAdvanced > 0 && date.FiscalPeriod != previous.FiscalPeriod;
         bool newYear = daysAdvanced > 0 && date.Year != previous.Year;
-        return new DayStartedInfo(date, date.IsBusinessDay, newPeriod, newYear, daysAdvanced, newEvents, published, taxNotices, marketNotices, autoDebited);
+        return new DayStartedInfo(date, date.IsBusinessDay, newPeriod, newYear, daysAdvanced, newEvents, published, taxNotices, marketNotices, autoDebited, _rateDecisions, _creditEvents);
     }
 
     /// <summary>Se llama al terminar el día, antes de guardar.</summary>
@@ -269,6 +297,11 @@ public sealed class EconomySimulation
         if (e.InflationShock != 0)
         {
             Inflation.AddShock(e.InflationShock);
+        }
+
+        if (e.InflationShock > 0)
+        {
+            RecordDecision(CentralBank.EmergencyHike(_state.CurrentDate));
         }
 
         RecalculatePrices();
@@ -318,6 +351,75 @@ public sealed class EconomySimulation
             };
 
         return Ledger.Post(LedgerEntities.Jugador, _state.CurrentDate, description, EntrySources.Conciliacion, lines);
+    }
+
+    private List<RateDecision> _rateDecisions = new();
+    private List<CreditEvent> _creditEvents = new();
+
+    /// <summary>Fuerza el default de un emisor (comando de debug). Devuelve false si no existe o ya estaba en default.</summary>
+    public bool ForceDefault(string issuer)
+    {
+        string id = issuer.Equals("soberano", StringComparison.OrdinalIgnoreCase) ? CreditEngine.Sovereign : issuer.ToUpperInvariant();
+        CreditEvent? e = Credit.ForceDefault(id, _state.CurrentDate);
+        if (e is null)
+        {
+            return false;
+        }
+
+        ApplyCreditEvent(e, _state.CurrentDate);
+        return true;
+    }
+
+    private void RecordDecision(RateDecision decision)
+    {
+        string direction = decision.Change > 0.00001 ? "up" : decision.Change < -0.00001 ? "down" : "hold";
+        Events.AddNews(new NewsItem(decision.Date, NewsKind.RateDecision, direction, decision.Rate));
+        _rateDecisions.Add(decision);
+    }
+
+    private void ApplyCreditEvent(CreditEvent e, EconomicDate day)
+    {
+        _creditEvents.Add(e);
+        switch (e.Kind)
+        {
+            case CreditEventKind.Default:
+                Events.AddNews(new NewsItem(day, NewsKind.Default, e.Issuer, 0));
+                Stocks.Shock(e.Issuer, DefaultEquityShock);
+                break;
+            case CreditEventKind.Restructuring:
+                Events.AddNews(new NewsItem(day, NewsKind.Restructuring, e.Issuer, 0));
+                break;
+            default:
+                Events.AddNews(new NewsItem(day, NewsKind.RatingChange, $"{e.Issuer}:{e.Rating}", e.Kind == CreditEventKind.Upgrade ? 1 : -1));
+                break;
+        }
+    }
+
+    /// <summary>Al empezar la estación: BCRF, calificaciones, defaults, canjes, pagos de bonos y licitaciones.</summary>
+    private void OnMarketsPeriodStart(EconomicDate day, DifficultyDefinition difficulty, List<MarketNotice> marketNotices)
+    {
+        RecordDecision(CentralBank.Meet(day, Inflation.PeriodRate, difficulty));
+
+        foreach (CreditEvent e in Credit.OnPeriodStart(day, difficulty, RandomStreams.For(_state.Seed, day, CreditStream)))
+        {
+            ApplyCreditEvent(e, day);
+        }
+
+        foreach ((string issuer, IssuerState s) in Credit.Issuers.Where(kv => kv.Value.Defaulted).ToList())
+        {
+            if (s.DefaultedIn is FiscalPeriod since && day.FiscalPeriod.SeasonsSince(since) >= Data.Ratings.RestructuringDelay)
+            {
+                marketNotices.AddRange(Broker.Restructure(issuer, day));
+                ApplyCreditEvent(Credit.Restructure(issuer), day);
+            }
+        }
+
+        marketNotices.AddRange(Broker.ProcessBondPayments(day));
+        marketNotices.Add(Broker.IssueLetras(day));
+        if (day.Season == Season.Spring)
+        {
+            Broker.IssueBonds(day);
+        }
     }
 
     private long? _autoDebitBudget;
@@ -376,7 +478,7 @@ public sealed class EconomySimulation
             }
 
             Inflation.StartPeriod(day.FiscalPeriod, difficulty, RandomStreams.For(_state.Seed, day, InflationStream));
-            marketNotices.Add(Broker.IssueLetras(day));
+            OnMarketsPeriodStart(day, difficulty, marketNotices);
         }
 
         if (Taxes.Started)
@@ -391,6 +493,11 @@ public sealed class EconomySimulation
             if (e.InflationShock != 0)
             {
                 Inflation.AddShock(e.InflationShock);
+            }
+
+            if (e.InflationShock > 0)
+            {
+                RecordDecision(CentralBank.EmergencyHike(day));
             }
         }
 

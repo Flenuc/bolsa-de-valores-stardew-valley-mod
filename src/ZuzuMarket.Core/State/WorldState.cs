@@ -13,8 +13,8 @@ namespace ZuzuMarket.Core.State;
 /// <summary>Todo el estado del mod para una partida. Se guarda junto con la partida.</summary>
 public sealed class WorldState
 {
-    /// <summary>1: Fase 0. 2: inflación, commodities y eventos. 3: impuestos. 4: bolsa.</summary>
-    public const int CurrentSchemaVersion = 4;
+    /// <summary>1: Fase 0. 2: inflación, commodities y eventos. 3: impuestos. 4: bolsa. 5: BCRF, bonos y crédito.</summary>
+    public const int CurrentSchemaVersion = 5;
 
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
 
@@ -39,6 +39,8 @@ public sealed class WorldState
     public TaxState Taxes { get; set; } = new();
 
     public MarketsState Markets { get; set; } = new();
+
+    public CentralBankState CentralBank { get; set; } = new();
 }
 
 public sealed class WorldStateSerializationException : Exception
@@ -100,6 +102,9 @@ public static class WorldStateSerializer
 
         // 3 → 4: la bolsa arranca el día en que se carga la partida (precios en su valor fundamental, MERZU = 1.000).
         state.Markets ??= new MarketsState();
+
+        // 4 → 5: el BCRF arranca con la tasa de la regla, se califican los emisores y se emiten los bonos al cargar.
+        state.CentralBank ??= new CentralBankState();
         state.SchemaVersion = WorldState.CurrentSchemaVersion;
         return state;
     }

@@ -69,6 +69,9 @@ internal sealed class ConsoleCommands
         _helper.ConsoleCommands.Add("zuzu_terminal", I18n.Get("cmd.terminal.help"), WithSimulation(TerminalCmd));
         _helper.ConsoleCommands.Add("zuzu_trade", I18n.Get("cmd.trade.help"), WithSimulation(TradeCmd));
         _helper.ConsoleCommands.Add("zuzu_place_phone", I18n.Get("cmd.place-phone.help"), WithSimulation(PlacePhone));
+        _helper.ConsoleCommands.Add("zuzu_rates", I18n.Get("cmd.rates.help"), WithSimulation(Rates));
+        _helper.ConsoleCommands.Add("zuzu_bonds", I18n.Get("cmd.bonds.help"), WithSimulation(Bonds));
+        _helper.ConsoleCommands.Add("zuzu_default", I18n.Get("cmd.default.help"), WithSimulation(DefaultCmd));
     }
 
     private Action<string, string[]> WithSimulation(Action<EconomySimulation, string[]> action) => (_, args) =>
@@ -295,9 +298,7 @@ internal sealed class ConsoleCommands
         sb.AppendLine(I18n.Get("cmd.events.news"));
         foreach (NewsItem n in sim.Events.State.News.Skip(Math.Max(0, sim.Events.State.News.Count - 10)))
         {
-            string text = n.Kind == NewsKind.Event
-                ? I18n.Get($"event.{n.Key}.headline")
-                : I18n.Get("news.inflation.short", new { rate = Formatting.Percent(I18n, n.Value) });
+            string text = NewsText.Headline(I18n, sim, n);
             sb.AppendLine($"  {GameDateBridge.Format(I18n, n.Date),-28} {text}");
         }
 
@@ -561,6 +562,65 @@ internal sealed class ConsoleCommands
         _monitor.Log(q.IsValid
             ? I18n.Get("cmd.trade.done", new { instrument = q.Instrument, quantity = q.Quantity, total = Money(q.Total) })
             : I18n.Get($"error.{q.Error}"), q.IsValid ? LogLevel.Info : LogLevel.Warn);
+    }
+
+    private void Rates(EconomySimulation sim, string[] args)
+    {
+        Broker b = sim.Broker;
+        var sb = new StringBuilder();
+        sb.AppendLine(I18n.Get("cmd.rates.title"));
+        sb.AppendLine(I18n.Get("cmd.rates.policy", new
+        {
+            rate = Formatting.Percent(I18n, b.ReferenceRate),
+            caucion = Formatting.Percent(I18n, b.CaucionRate),
+            risk = Formatting.Number(I18n, b.CountryRiskBps, "#,0"),
+            rating = b.Rating(CreditEngine.Sovereign),
+        }));
+        foreach (int days in new[] { 28, 56, 112, 224, 448, 896, 1344 })
+        {
+            sb.AppendLine($"  {days,5} d   {Formatting.Percent(I18n, b.Yield(days, CreditEngine.Sovereign)),8}");
+        }
+
+        sb.AppendLine(I18n.Get("cmd.rates.history"));
+        foreach (var d in sim.CentralBank.State.History.Skip(Math.Max(0, sim.CentralBank.State.History.Count - 6)))
+        {
+            sb.AppendLine($"  {GameDateBridge.Format(I18n, d.Date),-28} {Formatting.Percent(I18n, d.Rate),8} ({Formatting.Percent(I18n, d.Change, signed: true)})");
+        }
+
+        sb.Append(I18n.Get("cmd.rates.ratings", new { ratings = string.Join(", ", sim.Credit.Issuers.OrderBy(kv => kv.Key).Select(kv => $"{kv.Key} {kv.Value.Rating}")) }));
+        _monitor.Log(sb.ToString(), LogLevel.Info);
+    }
+
+    private void Bonds(EconomySimulation sim, string[] args)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine(I18n.Get("cmd.bonds.title"));
+        foreach (BondSeries bond in sim.Broker.ActiveBonds(true).Concat(sim.Broker.ActiveBonds(false)))
+        {
+            bool defaulted = sim.Broker.IsDefaulted(bond);
+            sb.AppendLine($"  {bond.Id,-10} {bond.Issuer,-9} {(defaulted ? "D" : sim.Broker.Rating(bond.Issuer)),-4} {bond.Type,-9} cupón {Formatting.Percent(I18n, bond.CouponRate),7}  vence {GameDateBridge.Format(I18n, bond.Maturity),-26} TIR {(defaulted ? "-" : Formatting.Percent(I18n, sim.Broker.BondYield(bond, sim.CurrentDate))),7}  precio {sim.Broker.BondPrice(bond, sim.CurrentDate),7:0.00}g");
+        }
+
+        _monitor.Log(sb.ToString().TrimEnd(), LogLevel.Info);
+    }
+
+    private void DefaultCmd(EconomySimulation sim, string[] args)
+    {
+        if (!_config.DebugMode)
+        {
+            _monitor.Log(I18n.Get("cmd.debug-only", new { command = "zuzu_default" }), LogLevel.Warn);
+            return;
+        }
+
+        if (args.Length == 0)
+        {
+            _monitor.Log(I18n.Get("cmd.default.usage"), LogLevel.Info);
+            return;
+        }
+
+        _monitor.Log(sim.ForceDefault(args[0])
+            ? I18n.Get("cmd.default.done", new { issuer = args[0] })
+            : I18n.Get("cmd.default.unknown", new { issuer = args[0] }), LogLevel.Info);
     }
 
     private void PlacePhone(EconomySimulation sim, string[] args)

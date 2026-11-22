@@ -52,6 +52,7 @@ public static class SystemAccounts
     public const string ResultadosVentaNegativos = "5.4.01";
     public const string ComisionesBursatiles = "5.4.03";
     public const string RetencionDividendos = "5.3.07";
+    public const string Bonos = "1.3.04";
 
     public static IReadOnlyList<string> All { get; } = new[]
     {
@@ -60,7 +61,7 @@ public static class SystemAccounts
         ImpuestosAPagarArpv, TasasAPagarMunicipalidad, Ventas, ComprasEnTiendas, Monotributo, IngresosBrutos,
         SeguridadHigiene, Abl, Ganancias, InteresesYMultasFiscales, CuentaComitente, Acciones, Letras,
         CaucionesColocadas, ResultadosVentaPositivos, Dividendos, InteresesGanados, ResultadosVentaNegativos,
-        ComisionesBursatiles, RetencionDividendos,
+        ComisionesBursatiles, RetencionDividendos, Bonos,
     };
 }
 

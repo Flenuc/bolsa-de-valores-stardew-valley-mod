@@ -11,6 +11,7 @@
   { "code": "1.3.01", "name": "Acciones (al costo)", "type": "Activo" },
   { "code": "1.3.02", "name": "Letras del Tesoro (al costo)", "type": "Activo" },
   { "code": "1.3.03", "name": "Cauciones colocadas", "type": "Activo" },
+  { "code": "1.3.04", "name": "Bonos y obligaciones negociables (al costo)", "type": "Activo" },
   { "code": "1.4.01", "name": "Bienes de uso", "type": "Activo" },
 
   { "code": "2.1.01", "name": "Deudas comerciales", "type": "Pasivo" },

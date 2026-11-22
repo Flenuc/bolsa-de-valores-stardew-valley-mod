@@ -27,7 +27,7 @@ internal static class TestData
     public static GameData WithoutEvents()
     {
         GameData real = Load();
-        return new GameData(real.Chart, real.Commodities, real.Difficulties, null, real.Taxes, real.Companies, real.Markets);
+        return new GameData(real.Chart, real.Commodities, real.Difficulties, null, real.Taxes, real.Companies, real.Markets, real.Ratings, real.BondTemplates);
     }
 
     /// <summary>Datos reales sin eventos y sin inflación (IPC = 1 siempre), para cuentas exactas de impuestos.</summary>
@@ -58,7 +58,7 @@ internal static class TestData
     public static GameData WithEvents(params EventDefinition[] events)
     {
         GameData real = Load();
-        return new GameData(real.Chart, real.Commodities, real.Difficulties, events, real.Taxes, real.Companies, real.Markets);
+        return new GameData(real.Chart, real.Commodities, real.Difficulties, events, real.Taxes, real.Companies, real.Markets, real.Ratings, real.BondTemplates);
     }
 
     /// <summary>Avanza la simulación día por día hasta la fecha indicada (inclusive).</summary>

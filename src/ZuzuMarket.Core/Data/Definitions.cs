@@ -241,8 +241,12 @@ public sealed class GameData
         IReadOnlyList<EventDefinition>? events = null,
         TaxRules? taxes = null,
         IReadOnlyList<CompanyDefinition>? companies = null,
-        MarketRules? markets = null)
+        MarketRules? markets = null,
+        RatingRules? ratings = null,
+        IReadOnlyList<BondTemplate>? bondTemplates = null)
     {
+        Ratings = ratings ?? new RatingRules();
+        BondTemplates = bondTemplates ?? Array.Empty<BondTemplate>();
         Taxes = taxes ?? new TaxRules();
         Companies = companies ?? Array.Empty<CompanyDefinition>();
         Markets = markets ?? new MarketRules();
@@ -267,6 +271,10 @@ public sealed class GameData
     public IReadOnlyList<CompanyDefinition> Companies { get; }
 
     public MarketRules Markets { get; }
+
+    public RatingRules Ratings { get; }
+
+    public IReadOnlyList<BondTemplate> BondTemplates { get; }
 
     public EventDefinition? FindEvent(string id) =>
         Events.FirstOrDefault(e => string.Equals(e.Id, id, StringComparison.OrdinalIgnoreCase));

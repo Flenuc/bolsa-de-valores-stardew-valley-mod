@@ -14,6 +14,18 @@ public enum NewsKind
 
     /// <summary>Se publicó la inflación de un período (<see cref="NewsItem.Value"/> = tasa).</summary>
     Inflation,
+
+    /// <summary>Decisión del BCRF (<see cref="NewsItem.Value"/> = tasa nueva; Key = "up", "down" o "hold").</summary>
+    RateDecision,
+
+    /// <summary>Default de un emisor (Key = emisor).</summary>
+    Default,
+
+    /// <summary>Canje de deuda (Key = emisor).</summary>
+    Restructuring,
+
+    /// <summary>Cambio de calificación (Key = "emisor:calificación"; Value = +1 sube, −1 baja).</summary>
+    RatingChange,
 }
 
 public sealed record NewsItem(EconomicDate Date, NewsKind Kind, string Key, double Value);

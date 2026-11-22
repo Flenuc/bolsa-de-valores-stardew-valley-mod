@@ -1,7 +1,9 @@
 using StardewModdingAPI;
 using StardewModdingAPI.Events;
 using StardewValley;
+using ZuzuMarket.Core.Macro;
 using ZuzuMarket.Core.Markets;
+using ZuzuMarket.Core.Simulation;
 
 namespace ZuzuMarket.Game.Content;
 
@@ -51,6 +53,36 @@ internal sealed class BrokerMail
         _hud.Hud(I18n.Get("broker.hud.opened"));
     }
 
+    /// <summary>Decisiones del BCRF y eventos de crédito: van al HUD (los cambios de calificación solo si tenés algo del emisor).</summary>
+    public void PublishMacro(EconomySimulation sim, DayStartedInfo info)
+    {
+        foreach (RateDecision d in info.RateDecisions.Where(d => Math.Abs(d.Change) > 0.00001))
+        {
+            _hud.Hud(I18n.Get(d.Change > 0 ? "news.rate.up" : "news.rate.down", new { rate = Formatting.Percent(I18n, d.Rate) }));
+        }
+
+        foreach (CreditEvent e in info.CreditEvents)
+        {
+            bool relevant = e.Issuer == CreditEngine.Sovereign
+                || sim.Broker.State.Stocks.ContainsKey(e.Issuer)
+                || sim.Broker.State.Bonds.Keys.Any(id => sim.Broker.FindBond(id)?.Issuer == e.Issuer);
+            if (e.Kind is CreditEventKind.Upgrade or CreditEventKind.Downgrade && !relevant)
+            {
+                continue;
+            }
+
+            string issuer = NewsText.Issuer(I18n, sim, e.Issuer);
+            string text = e.Kind switch
+            {
+                CreditEventKind.Default => I18n.Get("news.default", new { issuer }),
+                CreditEventKind.Restructuring => I18n.Get("news.restructuring", new { issuer }),
+                CreditEventKind.Upgrade => I18n.Get("news.upgrade", new { issuer, rating = e.Rating }),
+                _ => I18n.Get("news.downgrade", new { issuer, rating = e.Rating }),
+            };
+            _hud.Hud(text, e.Kind is CreditEventKind.Default or CreditEventKind.Downgrade ? 3 : 2);
+        }
+    }
+
     public void Publish(IReadOnlyList<MarketNotice> notices, bool accountOpen)
     {
         if (!accountOpen)
@@ -65,6 +97,9 @@ internal sealed class BrokerMail
                 MarketNoticeKind.Dividend => I18n.Get("broker.hud.dividend", new { ticker = n.Instrument, amount = Formatting.Money(I18n, n.Amount) }),
                 MarketNoticeKind.LetraMatured => I18n.Get("broker.hud.letra", new { id = n.Instrument, amount = Formatting.Money(I18n, n.Amount) }),
                 MarketNoticeKind.CaucionMatured => I18n.Get("broker.hud.caucion", new { amount = Formatting.Money(I18n, n.Amount) }),
+                MarketNoticeKind.Coupon => I18n.Get("broker.hud.coupon", new { id = n.Instrument, amount = Formatting.Money(I18n, n.Amount) }),
+                MarketNoticeKind.BondMatured => I18n.Get("broker.hud.bond-matured", new { id = n.Instrument }),
+                MarketNoticeKind.Exchange => I18n.Get("broker.hud.exchange", new { old = n.Instrument.Split('>')[0], @new = n.Instrument.Split('>')[^1], quantity = n.Amount.ToString("#,0") }),
                 _ => null,
             };
             if (text is not null)

@@ -128,6 +128,15 @@ public sealed class StockMarket
 
     public double MerzuAt(int timeOfDay) => MerzuFor(c => PriceAt(c.Ticker, timeOfDay));
 
+    /// <summary>Golpe al sentimiento (p. ej. cuando la empresa entra en default); se refleja en el próximo cierre.</summary>
+    public void Shock(string ticker, double sentimentDelta)
+    {
+        if (_s.Stocks.TryGetValue(ticker, out StockState? s))
+        {
+            s.Sentiment += sentimentDelta;
+        }
+    }
+
     /// <summary>Dividendo trimestral por acción (una estación = un trimestre del año).</summary>
     public double QuarterlyDividend(CompanyDefinition company) => _s.Stocks[company.Ticker].Eps / 4 * company.Payout;
 

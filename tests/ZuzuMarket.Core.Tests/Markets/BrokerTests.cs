@@ -151,7 +151,8 @@ public class BrokerTests
         double p56 = sim.Broker.LetraPrice(letras[1], Monday);
         double p112 = sim.Broker.LetraPrice(letras[2], Monday);
         Assert.True(p28 < 100 && p56 < p28 && p112 < p56);
-        Assert.Equal(100 / (1 + sim.Broker.ReferenceRate), p28, 9);
+        Assert.Equal(100 / (1 + sim.Broker.LetraRate(letras[0])), p28, 9);
+        Assert.True(sim.Broker.LetraRate(letras[0]) > sim.Broker.ReferenceRate); // incluye el riesgo país
 
         TradeQuote buy = sim.Broker.Execute("LEFE28-P1", TradeSide.Buy, 10, Monday, TenAm);
         Assert.True(buy.IsValid);

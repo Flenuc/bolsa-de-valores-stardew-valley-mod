@@ -1,0 +1,17 @@
+// Bonos soberanos y obligaciones negociables (§10.2 de docs/DISENO.md).
+// Se emite una serie de cada plantilla al arrancar la bolsa y cada primavera: id = prefijo + año (p. ej. BOFE1).
+//   issuer   FERNGILL (soberano) o el ticker de la empresa
+//   type     Fixed (cupón fijado con la curva al emitir), Floating (tasa del BCRF + coupon), Cer (capital × CER-F, cupón real)
+//   tenorSeasons  plazo en estaciones; pagos al empezar cada estación
+//   coupon   margen (Floating) o cupón real (Cer) por estación; en Fixed se ignora
+//   amortizationInstallments  cuotas iguales al final (1 = todo al vencimiento)
+[
+  { "prefix": "BOFE",   "issuer": "FERNGILL", "type": "Fixed",    "tenorSeasons": 8,  "coupon": 0,     "amortizationInstallments": 1 },
+  { "prefix": "BOVA",   "issuer": "FERNGILL", "type": "Floating", "tenorSeasons": 8,  "coupon": 0.015, "amortizationInstallments": 1 },
+  { "prefix": "BOCER",  "issuer": "FERNGILL", "type": "Cer",      "tenorSeasons": 12, "coupon": 0.02, "amortizationInstallments": 4 },
+  { "prefix": "ONJOJA", "issuer": "JOJA",     "type": "Fixed",    "tenorSeasons": 6,  "coupon": 0,     "amortizationInstallments": 1 },
+  { "prefix": "ONBZUZ", "issuer": "BZUZ",     "type": "Floating", "tenorSeasons": 6,  "coupon": 0.008, "amortizationInstallments": 1 },
+  { "prefix": "ONCALI", "issuer": "CALI",     "type": "Fixed",    "tenorSeasons": 8,  "coupon": 0,     "amortizationInstallments": 2 },
+  { "prefix": "ONZUEN", "issuer": "ZUEN",     "type": "Cer",      "tenorSeasons": 8,  "coupon": 0.01,  "amortizationInstallments": 2 },
+  { "prefix": "ONCONS", "issuer": "CONS",     "type": "Fixed",    "tenorSeasons": 4,  "coupon": 0,     "amortizationInstallments": 1 }
+]

@@ -1,4 +1,5 @@
 using ZuzuMarket.Core.Data;
+using ZuzuMarket.Core.Macro;
 
 namespace ZuzuMarket.Core.Markets;
 
@@ -44,6 +45,14 @@ public sealed class CompanyDefinition
     public double AverageVolume { get; set; } = 10_000;
 
     public List<Exposure> Exposures { get; set; } = new();
+}
+
+/// <summary>Punto de la prima por plazo de la curva.</summary>
+public sealed class TermPoint
+{
+    public int Days { get; set; }
+
+    public double Premium { get; set; }
 }
 
 public sealed class LetraTenor
@@ -98,4 +107,43 @@ public sealed class MarketRules
 
     /// <summary>Ticks intradiarios entre las 9:00 y las 17:00 (cada 10 minutos = 48).</summary>
     public int IntradayTicks { get; set; } = 48;
+
+    public CentralBankRules CentralBank { get; set; } = new();
+
+    /// <summary>Prima por plazo (mensual) según los días al vencimiento; se interpola linealmente.</summary>
+    public List<TermPoint> TermPremium { get; set; } = new();
+
+    public double BondSpread { get; set; } = 0.003;
+
+    /// <summary>Bono que se entrega en el canje: cupón fijo por estación, plazo y cuotas de amortización.</summary>
+    public double RestructuredCoupon { get; set; } = 0.005;
+
+    public int RestructuredTenor { get; set; } = 12;
+
+    public int RestructuredInstallments { get; set; } = 4;
+
+    public double Premium(int days)
+    {
+        if (TermPremium.Count == 0)
+        {
+            return 0;
+        }
+
+        List<TermPoint> points = TermPremium.OrderBy(p => p.Days).ToList();
+        if (days <= points[0].Days)
+        {
+            return points[0].Premium;
+        }
+
+        for (int i = 1; i < points.Count; i++)
+        {
+            if (days <= points[i].Days)
+            {
+                double t = (days - points[i - 1].Days) / (double)(points[i].Days - points[i - 1].Days);
+                return points[i - 1].Premium + (t * (points[i].Premium - points[i - 1].Premium));
+            }
+        }
+
+        return points[^1].Premium;
+    }
 }

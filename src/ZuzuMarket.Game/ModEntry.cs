@@ -177,6 +177,7 @@ internal sealed class ModEntry : Mod
         _news!.Publish(info);
         _taxMail!.Publish(info.TaxNotices);
         _brokerMail!.Publish(info.MarketNotices, Simulation.Broker.IsOpen);
+        _brokerMail.PublishMacro(Simulation, info);
         _phone!.Place();
         _municipalidad!.AnnounceAutoDebit(Simulation, info);
 
