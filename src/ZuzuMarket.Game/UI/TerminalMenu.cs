@@ -255,11 +255,16 @@ internal sealed class TerminalMenu : IClickableMenu
 
         var history = _sim.Stocks.State.MerzuHistory;
         Text(b, T("terminal.panel.chart"), col2, area.Y, Muted);
-        Chart(b, new Rectangle(col2, area.Y + 40, area.Right - col2, 200), history.Skip(Math.Max(0, history.Count - 28)).Select(h => h.Value).ToList());
+        Chart(b, new Rectangle(col2, area.Y + 40, area.Right - col2, 200), history.Skip(Math.Max(0, history.Count - 28)).Select(h => h.Value).ToList(), isIndex: true);
 
         int ny = area.Y + 270;
         Text(b, T("terminal.panel.news"), col2, ny, Muted);
         ny += 36;
+        if (_sim.Events.State.News.Count == 0)
+        {
+            Text(b, T("terminal.panel.no-news"), col2, ny);
+        }
+
         foreach (NewsItem n in _sim.Events.State.News.Skip(Math.Max(0, _sim.Events.State.News.Count - 5)).Reverse())
         {
             string text = n.Kind == NewsKind.Event
@@ -278,7 +283,7 @@ internal sealed class TerminalMenu : IClickableMenu
     private void DrawStocks(SpriteBatch b, Rectangle area)
     {
         int tableWidth = (int)(area.Width * 0.58);
-        int[] cols = { 0, 110, tableWidth - 330, tableWidth - 200, tableWidth - 90 };
+        int[] cols = { 0, 110, tableWidth - 370, tableWidth - 240, tableWidth - 130 };
         int y = area.Y;
         Text(b, T("terminal.col.ticker"), area.X + cols[0], y, Muted);
         Text(b, T("terminal.col.company"), area.X + cols[1], y, Muted);
@@ -349,8 +354,9 @@ internal sealed class TerminalMenu : IClickableMenu
         int y = area.Y;
         Text(b, T("terminal.letras.title"), area.X, y);
         y += 40;
-        int[] cols = { 0, 200, 470, 560, 700, 860 };
-        string[] headers = { "terminal.col.series", "terminal.col.maturity", "terminal.col.days", "terminal.col.price", "terminal.col.rate", "terminal.col.holding" };
+        int tableWidth = area.Width - 280;
+        int[] cols = { 0, (int)(tableWidth * 0.22), (int)(tableWidth * 0.46), (int)(tableWidth * 0.58), (int)(tableWidth * 0.74), (int)(tableWidth * 0.90) };
+        string[] headers = { "terminal.col.series", "terminal.col.maturity", "terminal.col.days", "terminal.col.price", "terminal.col.rate-monthly", "terminal.col.holding" };
         for (int i = 0; i < cols.Length; i++)
         {
             Text(b, T(headers[i]), area.X + cols[i], y, Muted);
@@ -361,10 +367,10 @@ internal sealed class TerminalMenu : IClickableMenu
         {
             long held = Broker.State.Letras.TryGetValue(l.Id, out Holding? h) ? h.Quantity : 0;
             Text(b, l.Id, area.X + cols[0], y);
-            Text(b, GameDateBridge.Format(I18n, l.Maturity), area.X + cols[1], y);
+            Text(b, ShortDate(l.Maturity), area.X + cols[1], y);
             Text(b, Date.DaysUntil(l.Maturity).ToString(), area.X + cols[2], y);
             Text(b, Price(Broker.LetraPrice(l, Date)), area.X + cols[3], y);
-            Text(b, RateText(Broker.LetraRate(l)), area.X + cols[4], y);
+            Text(b, Formatting.Percent(I18n, Broker.LetraRate(l)), area.X + cols[4], y);
             Text(b, held > 0 ? held.ToString() : "-", area.X + cols[5], y);
             Button(b, new Rectangle(area.Right - 260, y - 8, 120, 44), T("terminal.buy"), () => OpenTicket(l.Id, TradeSide.Buy));
             Button(b, new Rectangle(area.Right - 130, y - 8, 120, 44), T("terminal.sell"), () => OpenTicket(l.Id, TradeSide.Sell), enabled: held > 0);
@@ -495,8 +501,15 @@ internal sealed class TerminalMenu : IClickableMenu
         y += 36;
         foreach (Trade t in Broker.State.Trades.Skip(Math.Max(0, Broker.State.Trades.Count - 8)).Reverse())
         {
-            string side = T(t.Side == TradeSide.Buy ? "terminal.buy" : "terminal.sell");
-            Text(b, $"{GameDateBridge.Format(I18n, t.Date)} {Game1.getTimeOfDayString(t.TimeOfDay)} · {side} {t.Quantity} {t.Instrument} @ {Money(t.Price)} · {T("terminal.trade.net", new { net = Money(t.Net) })}", area.X, y);
+            Text(b, T(t.Side == TradeSide.Buy ? "terminal.trade.buy" : "terminal.trade.sell", new
+            {
+                date = ShortDate(t.Date),
+                time = Game1.getTimeOfDayString(t.TimeOfDay),
+                quantity = t.Quantity,
+                instrument = t.Instrument,
+                price = Money(t.Price),
+                net = Money(t.Net),
+            }), area.X, y);
             y += 32;
         }
     }
@@ -729,7 +742,7 @@ internal sealed class TerminalMenu : IClickableMenu
     }
 
     /// <summary>Gráfico de línea simple con mínimo y máximo.</summary>
-    private void Chart(SpriteBatch b, Rectangle area, IReadOnlyList<double> values)
+    private void Chart(SpriteBatch b, Rectangle area, IReadOnlyList<double> values, bool isIndex = false)
     {
         b.Draw(Game1.staminaRect, area, Color.Black * 0.08f);
         if (values.Count < 2)
@@ -755,9 +768,14 @@ internal sealed class TerminalMenu : IClickableMenu
                 (float)Math.Atan2(d.Y, d.X), Vector2.Zero, SpriteEffects.None, 0f);
         }
 
-        Text(b, Price(max), area.X + 6, area.Y + 2, Muted);
-        Text(b, Price(min), area.X + 6, area.Bottom - 30, Muted);
+        string Label(double v) => isIndex ? Formatting.Number(I18n, v, "#,0.00") : Price(v);
+        Text(b, Label(max), area.Right - 6 - (int)Game1.smallFont.MeasureString(Label(max)).X, area.Y + 2, Muted);
+        Text(b, Label(min), area.Right - 6 - (int)Game1.smallFont.MeasureString(Label(min)).X, area.Bottom - 30, Muted);
     }
+
+    /// <summary>"2 Ver. año 1": cabe en las tablas.</summary>
+    private string ShortDate(EconomicDate date) =>
+        T("date.short", new { day = date.Day, season = T($"season.short.{date.Season.ToString().ToLowerInvariant()}"), year = date.Year });
 
     private string Money(decimal amount) => amount.ToString("#,0.00", Formatting.Culture(I18n)) + "g";
 
