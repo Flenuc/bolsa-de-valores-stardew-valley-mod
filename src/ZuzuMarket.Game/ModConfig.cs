@@ -25,6 +25,15 @@ internal sealed class ModConfig
     /// </summary>
     public bool AllowBuildingAuction { get; set; }
 
+    /// <summary>Agencia Bursátil en el pueblo (fachada e interior con Julián Ferreyra).</summary>
+    public bool AgencyEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Esquina superior izquierda de la fachada de la Agencia. Vacío = se busca un lugar libre automáticamente
+    /// (distinto con Stardew Valley Expanded). Se elige con <c>zuzu_agency here</c>.
+    /// </summary>
+    public TilePosition? AgencyPosition { get; set; }
+
     /// <summary>Habilita comandos de depuración de consola, como <c>zuzu_reset</c> y <c>zuzu_event</c>.</summary>
     public bool DebugMode { get; set; }
 }

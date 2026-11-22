@@ -7,7 +7,9 @@ using ZuzuMarket.Core.Simulation;
 using ZuzuMarket.Core.State;
 using ZuzuMarket.Game.Bridges;
 using ZuzuMarket.Game.Commands;
+using ZuzuMarket.Game.Compat;
 using ZuzuMarket.Game.Content;
+using ZuzuMarket.Game.Integrations;
 using ZuzuMarket.Game.Hooks;
 using ZuzuMarket.Game.Persistence;
 using ZuzuMarket.Game.UI;
@@ -33,6 +35,8 @@ internal sealed class ModEntry : Mod
     private SeizureBridge? _seizure;
     private LegalMail? _legalMail;
     private CompanyMail? _companyMail;
+    private Agency? _agency;
+    private JulianNpc? _julian;
     private EconomySimulation? _simulation;
 
     /// <summary>Si el estado guardado estaba dañado, no se guarda nada encima para no perderlo.</summary>
@@ -91,6 +95,18 @@ internal sealed class ModEntry : Mod
         _municipalidad = new Municipalidad(helper, Monitor, () => Simulation, _taxMail, _money);
         _brokerMail = new BrokerMail(helper, ModManifest, _config, _taxMail);
         _phone = new PhoneService(Monitor, _config);
+        var compat = new ModCompat(helper.ModRegistry);
+        var exterior = new AgencyExterior(helper, Monitor, _config, compat);
+        _agency = new Agency(helper, Monitor, _config, exterior);
+        _julian = new JulianNpc(helper, Monitor, _config, exterior, () => Simulation);
+        helper.Events.Content.AssetRequested += exterior.OnAssetRequested;
+        helper.Events.Content.AssetRequested += _agency.OnAssetRequested;
+        helper.Events.Content.AssetRequested += _julian.OnAssetRequested;
+        helper.Events.GameLoop.GameLaunched += (_, _) => GenericModConfigMenu.Register(helper, ModManifest, _config,
+            () => Monitor.Log(helper.Translation.Get("log.config-saved"), LogLevel.Debug),
+            _data.Difficulties.ToDictionary(d => d.Id, d => d.Name));
+        new AgencyCommands(helper, Monitor, _config, compat, exterior, _agency, _julian, _phone).Register();
+        Monitor.Log($"Compatibilidad: {compat.Variant}.", LogLevel.Debug);
         var silo = new SiloBridge(() => Simulation);
         _seizure = new SeizureBridge(Monitor);
         _legalMail = new LegalMail(helper, ModManifest, _config, _taxMail);
@@ -99,6 +115,7 @@ internal sealed class ModEntry : Mod
         _companyMail = new CompanyMail(helper, ModManifest, _config, _taxMail);
         helper.Events.Content.AssetRequested += _companyMail.OnAssetRequested;
         _terminalActions = new TerminalActions(_brokerMail, _money, silo, exports, _companyMail);
+        _terminalActions.PayBills = () => { if (Simulation is not null) { _municipalidad.OpenDesk(Simulation); } };
         helper.Events.Display.MenuChanged += silo.OnMenuChanged;
         helper.Events.Display.MenuChanged += exports.OnMenuChanged;
         var objects = new ModObjects(helper.Translation);
@@ -153,6 +170,9 @@ internal sealed class ModEntry : Mod
                 Simulation = CreateSimulation();
                 Monitor.Log(Helper.Translation.Get("log.state-created", new { difficulty = Simulation.Difficulty.Name }), LogLevel.Info);
             }
+
+            // La amistad con Julián baja las comisiones de la ALyC.
+            Simulation.Broker.CommissionDiscount = () => _config.AgencyEnabled ? JulianNpc.CommissionDiscount : 0;
         }
         catch (Exception ex)
         {
@@ -195,6 +215,8 @@ internal sealed class ModEntry : Mod
         _brokerMail.PublishMacro(Simulation, info);
         _companyMail!.Publish(info.CompanyNotices, Simulation.Companies.Find);
         _phone!.Place();
+        _agency!.Prepare();
+        _julian!.OnDayStarted(Simulation);
         _municipalidad!.AnnounceAutoDebit(Simulation, info);
 
         _money!.Reset();
@@ -234,6 +256,7 @@ internal sealed class ModEntry : Mod
 
         // El teléfono se vuelve a poner a la mañana: así la partida guardada no depende del mod.
         _phone?.Remove();
+        _agency?.Remove();
         _money?.Reset();
     }
 
@@ -283,6 +306,12 @@ internal sealed class ModEntry : Mod
     private void OnButtonPressed(object? sender, ButtonPressedEventArgs e)
     {
         if (Simulation is null || !Context.IsPlayerFree || !e.Button.IsActionButton() || Game1.currentLocation is null)
+        {
+            return;
+        }
+
+        // Julián en el mostrador: después de saludarlo ofrece la Terminal y el pago de boletas.
+        if (_julian!.TryServe(e, OpenTerminal, () => _municipalidad!.OpenDesk(Simulation)))
         {
             return;
         }

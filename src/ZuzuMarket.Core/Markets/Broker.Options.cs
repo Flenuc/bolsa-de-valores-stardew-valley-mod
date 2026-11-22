@@ -93,7 +93,7 @@ public sealed partial class Broker
         double unit = Math.Max(0.01, mid * (1 + ((side == TradeSide.Buy ? 1 : -1) * DerivativesRules.OptionSpread / 2)));
         int lot = DerivativesRules.OptionLot;
         decimal notional = MoneyRounding.Round((decimal)(unit * lot * Math.Max(0, quantity)));
-        decimal commission = notional > 0 ? MoneyRounding.Round(Math.Max(notional * DerivativesRules.OptionCommissionRate, Rules.MinimumCommission)) : 0;
+        decimal commission = notional > 0 ? MoneyRounding.Round(Math.Max(notional * DerivativesRules.OptionCommissionRate * CommissionFactor, Rules.MinimumCommission)) : 0;
         decimal iva = MoneyRounding.Round(commission * Rules.CommissionIvaRate);
         long current = OptionPositionFor(series.Id)?.Quantity ?? 0;
         long after = current + (side == TradeSide.Buy ? quantity : -quantity);

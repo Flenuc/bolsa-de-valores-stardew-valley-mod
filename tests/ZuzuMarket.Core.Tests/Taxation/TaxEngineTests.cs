@@ -66,7 +66,7 @@ public class TaxEngineTests
         EconomySimulation casual = NewGame("casual");
         EconomySimulation argentina = NewGame("argentina");
         Assert.Equal(75, Single(casual, TaxKind.Monotributo, Spring1.FiscalPeriod).Principal);
-        Assert.Equal(180, Single(argentina, TaxKind.Monotributo, Spring1.FiscalPeriod).Principal);
+        Assert.Equal(218, Single(argentina, TaxKind.Monotributo, Spring1.FiscalPeriod).Principal); // 150 × 1,45
     }
 
     [Fact]
@@ -279,7 +279,7 @@ public class TaxEngineTests
         EconomySimulation argentina = NewGame("argentina");
         TestData.AdvanceTo(argentina, new EconomicDate(1, Season.Spring, 20));
         TaxObligation fee = Single(argentina, TaxKind.Monotributo, Spring1.FiscalPeriod);
-        Assert.Equal(180m * 0.001m * 1.5m * 5, fee.Interest);
+        Assert.Equal(218m * 0.001m * 1.5m * 5, fee.Interest);
     }
 
     [Fact]

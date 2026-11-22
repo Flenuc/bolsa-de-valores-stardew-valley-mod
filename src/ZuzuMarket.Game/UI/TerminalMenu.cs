@@ -713,7 +713,29 @@ internal sealed partial class TerminalMenu : IClickableMenu
         y += 70;
         Button(b, new Rectangle(area.X, y, 260, 60), T("terminal.account.deposit"), () => Result(_actions.Deposit(_sim, _amount), T("terminal.account.deposited")));
         Button(b, new Rectangle(area.X + 280, y, 260, 60), T("terminal.account.withdraw"), () => Result(_actions.Withdraw(_sim, _amount), T("terminal.account.withdrawn")));
+        int unpaid = _sim.AllUnpaid.Count();
+        Button(b, new Rectangle(area.X + 560, y, 300, 60), T("terminal.account.pay-bills", new { count = unpaid }), () =>
+        {
+            exitThisMenu();
+            _actions.PayBills?.Invoke();
+        }, enabled: unpaid > 0 && _actions.PayBills is not null);
         y += 90;
+
+        // Valor de la cartera en el tiempo, a la derecha.
+        int chartX = area.X + 900;
+        if (area.Right - chartX >= 240)
+        {
+            Text(b, T("terminal.account.value-chart"), chartX, area.Y, Muted);
+            List<double> values = Broker.State.ValueHistory.Select(v => v.Value).ToList();
+            if (values.Count >= 2)
+            {
+                Chart(b, new Rectangle(chartX, area.Y + 36, area.Right - chartX, 220), values, label: v => Money((decimal)v));
+            }
+            else
+            {
+                Text(b, T("terminal.account.value-chart-empty"), chartX, area.Y + 40, Muted);
+            }
+        }
 
         Text(b, T("terminal.account.trades"), area.X, y, Muted);
         y += 36;

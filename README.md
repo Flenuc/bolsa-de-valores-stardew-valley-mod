@@ -35,8 +35,17 @@ Si el juego no está en la ruta estándar de Steam/GOG, agregá `<GamePath>` en 
 | `NewsLetters` | `true` | Manda cartas del Diario de Zuzu, del INDEF y del fisco al buzón. |
 | `AutoDebit` | `true` | Paga solo las boletas el día del vencimiento (o las vencidas) si alcanza el oro. |
 | `PhonePosition` | `{ "X": 45, "Y": 55 }` | Tile del pueblo donde está el teléfono de Valle Inversiones (se cambia con `zuzu_place_phone`). |
+| `AgencyEnabled` | `true` | Agencia Bursátil en el pueblo con Julián Ferreyra. Apagala si choca con otro mod. |
+| `AgencyPosition` | (vacío) | Esquina de la fachada de la Agencia. Vacío = busca un lugar libre (distinto con Stardew Valley Expanded). Se elige con `zuzu_agency here`. |
 | `AllowBuildingAuction` | `false` | Solo en Argentina: una quiebra puede rematar edificios de la granja (incluso con animales adentro). |
 | `DebugMode` | `false` | Habilita comandos de depuración como `zuzu_reset` y `zuzu_event`. |
+
+## Compatibilidad
+
+- **Stardew Valley Expanded**: el mod no reemplaza mapas. La fachada de la Agencia se parcha al final, sobre el pueblo
+  ya editado, y solo en un lugar libre (si no hay, queda el teléfono); el teléfono busca un tile libre cercano; las
+  boletas también se pagan desde la Terminal y en el mostrador de la Agencia. `zuzu_compat` muestra cómo quedó todo.
+- **Generic Mod Config Menu** (opcional): todas las opciones se pueden cambiar desde el menú.
 
 ## Comandos de consola (SMAPI)
 
@@ -71,6 +80,8 @@ Si el juego no está en la ruta estándar de Steam/GOG, agregá `<GamePath>` en 
 | `zuzu_exports` | Retenciones por commodity, contenedor de exportación y cobros pendientes |
 | `zuzu_company_eps <id> <monto>` | (solo `DebugMode`) le suma un resultado a una sociedad y cierra una estación, para probar la IPO |
 | `zuzu_unlock_companies` | (solo `DebugMode`) desbloquea todos los tipos de sociedad |
+| `zuzu_compat` | Variante del pueblo (vanilla o SVE), dónde quedaron la Agencia y el teléfono, y el estado de Julián |
+| `zuzu_agency [info\|here\|auto]` | Ubica la Agencia: `here` deja la puerta justo arriba tuyo; `auto` busca un lugar libre |
 | `zuzu_place_phone` | Mueve el teléfono de Valle Inversiones al tile que tenés enfrente (en el pueblo) |
 | `zuzu_terminal` | (solo `DebugMode`) abre la Terminal Bursátil en cualquier lado |
 | `zuzu_trade buy\|sell <especie> <cant>` | (solo `DebugMode`) opera sin la Terminal |

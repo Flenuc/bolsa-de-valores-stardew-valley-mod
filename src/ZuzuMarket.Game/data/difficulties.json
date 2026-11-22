@@ -40,7 +40,7 @@
     "inflationMax": 0.25,
     "priceVolatility": 1.75,
     "negativeEventFrequency": 1.75,
-    "taxBurden": 1.2,
+    "taxBurden": 1.45,
     "tradeDuties": 1.5,
     "lateInterest": 1.5,
     "embargoes": ["ingresos", "cuentas", "bienes", "edificios"],

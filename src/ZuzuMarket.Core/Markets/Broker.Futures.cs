@@ -92,7 +92,7 @@ public sealed partial class Broker
         double price = mid * (1 + ((side == TradeSide.Buy ? 1 : -1) * DerivativesRules.FuturesSpread / 2));
         int size = ContractSize(contract);
         decimal notional = MoneyRounding.Round((decimal)(price * size * Math.Max(0, quantity)));
-        decimal commission = notional > 0 ? MoneyRounding.Round(Math.Max(notional * DerivativesRules.FuturesCommissionRate, Rules.MinimumCommission)) : 0;
+        decimal commission = notional > 0 ? MoneyRounding.Round(Math.Max(notional * DerivativesRules.FuturesCommissionRate * CommissionFactor, Rules.MinimumCommission)) : 0;
         decimal iva = MoneyRounding.Round(commission * Rules.CommissionIvaRate);
         long current = FuturesPositionFor(contract.Id)?.Quantity ?? 0;
         long after = current + (side == TradeSide.Buy ? quantity : -quantity);

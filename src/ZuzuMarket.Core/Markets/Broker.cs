@@ -98,6 +98,11 @@ public sealed partial class Broker
     /// <summary>Cuenta comitente embargada (la fija el motor legal): no se puede retirar.</summary>
     public Func<bool> IsAccountFrozen { get; set; } = () => false;
 
+    /// <summary>Descuento sobre las comisiones de la ALyC (0 a 1), p. ej. por la amistad con tu agente de bolsa.</summary>
+    public Func<decimal> CommissionDiscount { get; set; } = () => 0;
+
+    private decimal CommissionFactor => 1 - Math.Clamp(CommissionDiscount(), 0, 1);
+
     /// <summary>Ticker de una sociedad del jugador (la fija el motor de sociedades).</summary>
     public Func<string, bool> IsOwnCompany { get; set; } = _ => false;
 
@@ -299,7 +304,7 @@ public sealed partial class Broker
         double sign = side == TradeSide.Buy ? 1 : -1;
         decimal unit = MoneyRounding.Round((decimal)(mid.Value * (1 + (sign * ((spread / 2) + impact)))));
         decimal gross = unit * Math.Max(0, quantity);
-        decimal commission = gross > 0 ? MoneyRounding.Round(Math.Max(gross * Rules.CommissionRate, Rules.MinimumCommission)) : 0;
+        decimal commission = gross > 0 ? MoneyRounding.Round(Math.Max(gross * Rules.CommissionRate * CommissionFactor, Rules.MinimumCommission)) : 0;
         decimal marketFee = MoneyRounding.Round(gross * Rules.MarketFeeRate);
         decimal iva = MoneyRounding.Round(commission * Rules.CommissionIvaRate);
 
@@ -527,6 +532,21 @@ public sealed partial class Broker
     // ───────────────────────────── Valuación ─────────────────────────────
 
     /// <summary>Valor de mercado de las tenencias (acciones y Letras al precio medio, cauciones con su interés devengado).</summary>
+    /// <summary>Guarda el valor de la cartera al cierre (para el gráfico).</summary>
+    public void RecordValue(EconomicDate date)
+    {
+        if (!IsOpen || !date.IsBusinessDay)
+        {
+            return;
+        }
+
+        _s.Broker.ValueHistory.Add(new IndexClose(date, (double)PortfolioValue(date, MarketHours.Close)));
+        if (_s.Broker.ValueHistory.Count > EconomicDate.DaysPerYear)
+        {
+            _s.Broker.ValueHistory.RemoveAt(0);
+        }
+    }
+
     public decimal PortfolioValue(EconomicDate date, int timeOfDay)
     {
         double stocks = _s.Broker.Stocks.Sum(kv => (_stocks.Find(kv.Key) is null ? 0 : _stocks.PriceAt(kv.Key, timeOfDay)) * kv.Value.Quantity);

@@ -971,5 +971,5 @@ internal sealed class ConsoleCommands
         return name.HasValue() ? name : c.Name;
     }
 
-    private static string Money(decimal amount) => amount.ToString("#,0.00", CultureInfo.InvariantCulture) + "g";
+    private string Money(decimal amount) => Formatting.Money(I18n, amount);
 }

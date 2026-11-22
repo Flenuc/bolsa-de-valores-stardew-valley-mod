@@ -19,6 +19,7 @@
   <ItemGroup>
     <!-- Los tests usan los mismos JSON que se despliegan con el mod. -->
     <None Include="..\..\src\ZuzuMarket.Game\data\*.json" Link="data\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\src\ZuzuMarket.Game\i18n\*.json" Link="i18n\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

@@ -25,6 +25,9 @@ internal sealed class TerminalActions
         _companyMail = companyMail;
     }
 
+    /// <summary>Abre el pago de boletas (el mismo del libro de Lewis), por si el escritorio no está donde se espera.</summary>
+    public Action? PayBills { get; set; }
+
     public void OpenSilo(EconomySimulation sim) => _silo.Open(sim);
 
     public void OpenExports(EconomySimulation sim) => _exports.Open(sim);

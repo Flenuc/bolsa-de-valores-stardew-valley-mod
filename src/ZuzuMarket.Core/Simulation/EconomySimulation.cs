@@ -696,6 +696,7 @@ public sealed class EconomySimulation
         Legal.RecordTaxNotices(taxNotices.Skip(before));
         Legal.OnDay(day, _legalDay);
         Companies.OnDay(day, q => Broker.DerivativesRules.QualityPremium(q), _companyNotices);
+        Broker.RecordValue(day);
     }
 
     private void RecalculatePrices()

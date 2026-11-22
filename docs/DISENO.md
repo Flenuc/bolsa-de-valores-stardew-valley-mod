@@ -515,10 +515,21 @@ Cada parámetro puede además ajustarse individualmente en `config.json` (y con 
 | **6 — Legal** | Embargos, concurso, quiebra, préstamos bancarios, calificación del jugador | Las deudas tienen consecuencias | Escalera completa reproducible en tests |
 | **7A — Expansión empresaria** | Nuevas empresas del jugador, S.A., retenciones/aranceles completos, comercializadora Gotoro | Tus sociedades | Sociedades con libro e impuestos propios |
 | **7B — Mercado de capitales propio** | Emisión de ON propias, IPO de una S.A. que cotiza en BYMZ (implementado) | Final del juego | IPO funcional |
-| **8 — Edificio, NPC y pulido** | Agencia Bursátil en el lote al sur de la plaza, NPC agente de bolsa (horarios, diálogos, amistad, eventos), gráficos, balance de dificultades, i18n en/es, compatibilidad con GMCM | Versión 1.0 | Partida de prueba de 1 año en cada dificultad |
+| **8 — Edificio, NPC y pulido** (implementado: Agencia con fachada validada para SVE, Julián Ferreyra con horario, diálogos del mercado, regalos, 3 eventos y comisión preferencial; balance por simulación; GMCM) | Agencia Bursátil en el lote al sur de la plaza, NPC agente de bolsa (horarios, diálogos, amistad, eventos), gráficos, balance de dificultades, i18n en/es, compatibilidad con GMCM | Versión 1.0 | Partida de prueba de 1 año en cada dificultad |
 | **9 — Multijugador / Argentina avanzada** | Host autoritativo, cuentas por granjero; tipo de cambio, cepo, brecha | — | — |
 
 ---
+
+### Fase 8 — balance medido (tests `Balance/`)
+
+| Perfil | Casual | Realista | Argentina |
+|---|---|---|---|
+| Inflación anual (promedio de 4 semillas) | ≈2% | ≈13% | ≈80% |
+| Granjero chico (Monotributo, ~25.000/año) | ≈4% | ≈9% | ≈12% |
+| Granjero grande (RI, ~2,5 M/año, año completo) | ≈8% | ≈16% | ≈23% (+ retenciones) |
+
+Ajuste: `taxBurden` de Argentina 1,2 → 1,45. Sin arbitraje entre ON propias y cauciones (el cupón siempre supera a la
+caución colocadora).
 
 ## 15. Riesgos y mitigaciones
 
@@ -534,7 +545,8 @@ Cada parámetro puede además ajustarse individualmente en `config.json` (y con 
 
 ## 16. Preguntas abiertas
 
-- Nombre y aspecto definitivos del agente de bolsa (provisorio: Julián Ferreyra).
+- Nombre del agente de bolsa: **Julián Ferreyra** (definido en la Fase 8). Aspecto: placeholder propio en
+  `assets/julian*.png` (regenerable con `tools/make_art.ps1`) hasta conseguir un artista.
 - ¿Quién hace el arte (retrato, sprites, edificio, Terminal Bursátil)? ¿Placeholder hasta conseguir artista?
 
 ## 17. Pendientes técnicos

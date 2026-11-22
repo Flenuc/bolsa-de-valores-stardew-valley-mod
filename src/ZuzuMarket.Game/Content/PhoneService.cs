@@ -24,6 +24,9 @@ internal sealed class PhoneService
 
     public Vector2 Tile => new(_config.PhonePosition.X, _config.PhonePosition.Y);
 
+    /// <summary>Dónde quedó hoy (puede ser un tile cercano si el configurado está ocupado, p. ej. con SVE).</summary>
+    public Vector2? PlacedAt { get; private set; }
+
     public void Place()
     {
         GameLocation? town = Game1.getLocationFromName(Location);
@@ -32,19 +35,48 @@ internal sealed class PhoneService
             return;
         }
 
-        if (town.objects.TryGetValue(Tile, out SObject? existing))
+        if (town.objects.Values.FirstOrDefault(o => o.QualifiedItemId == ModObjects.PhoneQualifiedId) is { } placed)
         {
-            if (existing.QualifiedItemId != ModObjects.PhoneQualifiedId)
-            {
-                _monitor.Log($"No se pudo poner el teléfono de Valle Inversiones en {Location} {Tile}: el lugar está ocupado. Movelo con zuzu_place_phone.", LogLevel.Warn);
-            }
-
+            PlacedAt = placed.TileLocation;
             return;
         }
 
+        // El tile configurado, o el más cercano libre (otros mods, como SVE, pueden haber cambiado el pueblo).
+        Vector2? tile = Candidates(Tile).Cast<Vector2?>().FirstOrDefault(t => town.CanItemBePlacedHere(t!.Value) && !town.objects.ContainsKey(t.Value));
+        if (tile is not { } free)
+        {
+            PlacedAt = null;
+            _monitor.Log($"No se pudo poner el teléfono de Valle Inversiones cerca de {Location} {Tile}: no hay lugar libre. Movelo con zuzu_place_phone.", LogLevel.Warn);
+            return;
+        }
+
+        if (free != Tile)
+        {
+            _monitor.Log($"El tile del teléfono {Tile} está ocupado: se puso en {free}.", LogLevel.Debug);
+        }
+
         SObject phone = ItemRegistry.Create<SObject>(ModObjects.PhoneQualifiedId);
-        phone.TileLocation = Tile;
-        town.objects.Add(Tile, phone);
+        phone.TileLocation = free;
+        town.objects.Add(free, phone);
+        PlacedAt = free;
+    }
+
+    private static IEnumerable<Vector2> Candidates(Vector2 origin)
+    {
+        yield return origin;
+        for (int r = 1; r <= 4; r++)
+        {
+            for (int dx = -r; dx <= r; dx++)
+            {
+                for (int dy = -r; dy <= r; dy++)
+                {
+                    if (Math.Max(Math.Abs(dx), Math.Abs(dy)) == r)
+                    {
+                        yield return origin + new Vector2(dx, dy);
+                    }
+                }
+            }
+        }
     }
 
     public void Remove()

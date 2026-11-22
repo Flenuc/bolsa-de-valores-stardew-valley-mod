@@ -118,6 +118,9 @@ public sealed class BrokerState
 
     public List<Trade> Trades { get; set; } = new();
 
+    /// <summary>Valor total de la cartera al cierre de cada día hábil (último año).</summary>
+    public List<IndexClose> ValueHistory { get; set; } = new();
+
     public long NextId { get; set; } = 1;
 }
 
