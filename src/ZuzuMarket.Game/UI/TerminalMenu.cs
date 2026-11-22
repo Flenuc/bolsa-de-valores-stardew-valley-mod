@@ -732,31 +732,35 @@ internal sealed partial class TerminalMenu : IClickableMenu
         }
     }
 
-    private void DrawAmountControls(SpriteBatch b, int x, int y, decimal max, Func<long>? get = null, Action<long>? set = null)
+    /// <param name="width">Ancho disponible: si se da, los botones se achican para entrar (por defecto 764px).</param>
+    private void DrawAmountControls(SpriteBatch b, int x, int y, decimal max, Func<long>? get = null, Action<long>? set = null, int? width = null)
     {
         get ??= () => _amount;
         set ??= v => _amount = v;
         long[] steps = { -1000, -100, 100, 1000 };
+        int box = width is null ? 200 : 170;
+        int bw = width is int w ? Math.Max(60, (w - box - 48) / 5) : 100;
+        int allWidth = width is null ? 120 : bw;
         int cx = x;
         for (int i = 0; i < 2; i++)
         {
             long step = steps[i];
-            Button(b, new Rectangle(cx, y, 100, 50), step.ToString("#,0", Formatting.Culture(I18n)), () => set(Math.Max(0, get() + step)));
-            cx += 108;
+            Button(b, new Rectangle(cx, y, bw, 50), step.ToString("#,0", Formatting.Culture(I18n)), () => set(Math.Max(0, get() + step)));
+            cx += bw + 8;
         }
 
-        b.Draw(Game1.staminaRect, new Rectangle(cx, y, 200, 50), Color.White * 0.7f);
-        TextRight(b, Money(get()), cx + 190, y + 10);
-        cx += 212;
+        b.Draw(Game1.staminaRect, new Rectangle(cx, y, box, 50), Color.White * 0.7f);
+        TextRight(b, Money(get()), cx + box - 10, y + 10);
+        cx += box + 12;
         for (int i = 2; i < 4; i++)
         {
             long step = steps[i];
-            Button(b, new Rectangle(cx, y, 100, 50), "+" + step.ToString("#,0", Formatting.Culture(I18n)), () => set(get() + step));
-            cx += 108;
+            Button(b, new Rectangle(cx, y, bw, 50), "+" + step.ToString("#,0", Formatting.Culture(I18n)), () => set(get() + step));
+            cx += bw + 8;
         }
 
         long all = (long)Math.Floor(max);
-        Button(b, new Rectangle(cx, y, 120, 50), T("terminal.amount.all"), () => set(all));
+        Button(b, new Rectangle(cx, y, allWidth, 50), T("terminal.amount.all"), () => set(all));
     }
 
     // ───────────────────────────── Boleto de orden ─────────────────────────────

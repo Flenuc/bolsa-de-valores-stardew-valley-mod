@@ -296,6 +296,7 @@ public class CompanyTests
         Assert.Equal(Math.Round(fob * 0.12m, 2), duty);
         Assert.Equal(0m, Balance(sim, exporter.Id, SystemAccounts.IvaDebitoFiscal)); // exportación sin IVA
         Assert.Equal(fob - duty, Balance(sim, exporter.Id, SystemAccounts.ExportacionesACobrar));
+        Assert.Equal(0m, sim.Companies.Distributable(exporter)); // la ganancia todavía no se cobró: no sale del capital
 
         while (sim.CurrentDate < new EconomicDate(1, Season.Spring, 10))
         {
@@ -304,6 +305,7 @@ public class CompanyTests
 
         Assert.Contains(notices, n => n.Kind == CompanyNoticeKind.ExportCollected);
         Assert.Equal(0m, Balance(sim, exporter.Id, SystemAccounts.ExportacionesACobrar));
+        Assert.Equal(Math.Floor(fob - duty), sim.Companies.Distributable(exporter));
         AssertBalanced(sim);
     }
 

@@ -51,57 +51,66 @@ internal sealed partial class TerminalMenu
             _selectedCompany = active[0].Id;
         }
 
-        foreach (CompanyState c in active)
+        // Selector compacto: hasta 3 sociedades por fila.
+        int bw = (area.Width - 20) / 3;
+        for (int i = 0; i < active.Count; i++)
         {
-            string id = c.Id;
-            Button(b, new Rectangle(area.X, y, area.Width, 44), $"{CompanyName(c)} · {c.Rating}", () =>
+            string id = active[i].Id;
+            Button(b, new Rectangle(area.X + ((i % 3) * (bw + 10)), y + ((i / 3) * 48), bw, 42), CompanyMail.TypeName(I18n, active[i].Type), () =>
             {
                 _selectedCompany = id;
                 _confirmDissolve = false;
-            }, selected: _selectedCompany == c.Id);
-            y += 50;
+            }, selected: _selectedCompany == id);
         }
 
+        y += (((active.Count - 1) / 3) + 1) * 48;
         CompanyState selected = active.First(c => c.Id == _selectedCompany);
-        y += 6;
-        Text(b, T("terminal.companies.cuit", new { cuit = selected.Cuit, date = ShortDate(selected.CreatedOn) }), area.X, y, Muted);
-        y += 34;
+        Text(b, T("terminal.companies.header", new { name = CompanyName(selected), rating = selected.Rating, cuit = selected.Cuit }), area.X, y, Muted);
+        y += 32;
         decimal unpaid = Companies.TaxesOf(selected).Unpaid.Sum(o => (decimal)o.Total);
-        var rows = new (string Label, string Value)[]
+        decimal distributable = Companies.Distributable(selected);
+        bool srl = selected.Form.Equals("SRL", StringComparison.OrdinalIgnoreCase);
+        decimal transformCost = Math.Max(0, Companies.MinimumCapital("SA") - Companies.CapitalOf(selected)) + Companies.TransformationFee;
+        var rows = new List<(string Label, string Value)>
         {
             (T("terminal.companies.cash"), Money(Companies.Cash(selected))),
             (T("terminal.companies.revenue"), Money(Companies.AnnualRevenue(selected))),
             (T("terminal.companies.capital"), Money(Companies.CapitalOf(selected))),
             (T("terminal.companies.retained"), Money(Companies.RetainedEarnings(selected))),
+            (T("terminal.companies.distributable"), Money(distributable)),
             (T("terminal.companies.unpaid"), Money(unpaid)),
         };
+        if (srl)
+        {
+            rows.Add((T("terminal.companies.transform-cost"), Money(transformCost)));
+        }
+
         foreach ((string label, string value) in rows)
         {
             Text(b, label, area.X, y, Muted);
             TextRight(b, value, area.Right, y);
-            y += 30;
+            y += 28;
         }
 
         y += 8;
-        decimal distributable = Companies.Distributable(selected);
-        DrawAmountControls(b, area.X, y, Math.Max(distributable, Game1.player.Money), () => _companyAmount, v => _companyAmount = v);
-        y += 60;
+        DrawAmountControls(b, area.X, y, Math.Max(distributable, Game1.player.Money), () => _companyAmount, v => _companyAmount = v, area.Width);
+        y += 58;
         int w = (area.Width - 10) / 2;
         string sid = selected.Id;
         Button(b, new Rectangle(area.X, y, w, 50), T("terminal.companies.contribute"), () =>
             CompanyResult(_actions.Contribute(_sim, sid, _companyAmount), T("terminal.companies.contributed")),
             enabled: _companyAmount >= 1 && _companyAmount <= Game1.player.Money);
-        Button(b, new Rectangle(area.X + w + 10, y, w, 50), T("terminal.companies.dividend", new { max = Money(distributable) }), () =>
-            CompanyResult(_actions.PayDividend(_sim, sid, _companyAmount), T("terminal.companies.dividend-done")),
-            enabled: _companyAmount >= 1 && _companyAmount <= distributable);
-        y += 58;
+        long dividend = (long)Math.Min(_companyAmount, distributable);
+        Button(b, new Rectangle(area.X + w + 10, y, w, 50), T("terminal.companies.dividend"), () =>
+            CompanyResult(_actions.PayDividend(_sim, sid, dividend), T("terminal.companies.dividend-done", new { amount = Money(dividend) })),
+            enabled: dividend >= 1);
+        y += 56;
 
-        if (selected.Form.Equals("SRL", StringComparison.OrdinalIgnoreCase))
+        if (srl)
         {
-            decimal cost = Math.Max(0, Companies.MinimumCapital("SA") - Companies.CapitalOf(selected)) + Companies.TransformationFee;
-            Button(b, new Rectangle(area.X, y, w, 50), T("terminal.companies.transform", new { cost = Money(cost) }), () =>
+            Button(b, new Rectangle(area.X, y, w, 50), T("terminal.companies.transform"), () =>
                 CompanyResult(_actions.Transform(_sim, sid, "SA"), T("terminal.companies.transformed")),
-                enabled: Game1.player.Money >= cost);
+                enabled: Game1.player.Money >= transformCost);
         }
 
         Button(b, new Rectangle(area.X + w + 10, y, w, 50), T(_confirmDissolve ? "terminal.companies.dissolve-confirm" : "terminal.companies.dissolve"), () =>
@@ -115,7 +124,7 @@ internal sealed partial class TerminalMenu
             _confirmDissolve = false;
             CompanyResult(_actions.Dissolve(_sim, sid), T("terminal.companies.dissolved"));
         });
-        y += 58;
+        y += 56;
 
         if (Companies.Exporter?.Id == selected.Id)
         {
@@ -127,7 +136,6 @@ internal sealed partial class TerminalMenu
             });
         }
     }
-
     private void DrawNewCompany(SpriteBatch b, Rectangle area)
     {
         int y = area.Y;
@@ -139,14 +147,14 @@ internal sealed partial class TerminalMenu
         {
             string id = type.Id;
             bool exists = Companies.ActiveOfType(id) is not null;
-            int bw = (area.Width - 20) / 3;
-            Button(b, new Rectangle(x + (col * (bw + 10)), y, bw, 46), CompanyMail.TypeName(I18n, id), () => _newType = id,
+            int bw = (area.Width - 10) / 2;
+            Button(b, new Rectangle(x + (col * (bw + 10)), y, bw, 44), CompanyMail.TypeName(I18n, id), () => _newType = id,
                 enabled: !exists, selected: _newType == id);
             col++;
-            if (col == 3)
+            if (col == 2)
             {
                 col = 0;
-                y += 54;
+                y += 50;
             }
 
             if (_newType == id && exists)
@@ -155,7 +163,7 @@ internal sealed partial class TerminalMenu
             }
         }
 
-        y += col == 0 ? 0 : 54;
+        y += col == 0 ? 0 : 50;
         x = area.X;
         foreach (LegalFormDefinition form in _sim.Data.PlayerCompanies.Forms)
         {
@@ -179,7 +187,7 @@ internal sealed partial class TerminalMenu
         }
 
         Text(b, T($"company.unlock.{selected.Unlock}", new { machines = CompanyUnlocks.MachinesNeeded }), area.X, y, isUnlocked ? Positive : Negative);
-        y += 36;
+        y += 34;
 
         decimal minimum = Companies.MinimumCapital(_newForm);
         if (_newCapital < minimum)
@@ -187,7 +195,7 @@ internal sealed partial class TerminalMenu
             _newCapital = (long)minimum;
         }
 
-        DrawAmountControls(b, area.X, y, Game1.player.Money, () => _newCapital, v => _newCapital = v);
+        DrawAmountControls(b, area.X, y, Game1.player.Money, () => _newCapital, v => _newCapital = v, area.Width);
         y += 60;
         decimal fee = Companies.RegistrationFee(_newForm);
         Text(b, T("terminal.companies.cost", new { minimum = Money(minimum), fee = Money(fee), total = Money(_newCapital + fee) }), area.X, y, Muted);

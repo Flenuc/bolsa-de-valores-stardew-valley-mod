@@ -117,11 +117,16 @@ public sealed class PlayerCompanies
         return equity;
     }
 
-    /// <summary>Dividendos que se pueden distribuir hoy: resultados no asignados, sin dejar boletas impagas.</summary>
+    /// <summary>
+    /// Dividendos que se pueden distribuir hoy: resultados no asignados, pagados con la caja que sobra después de
+    /// cubrir todas las deudas (boletas y pasivos devengados) y sin tocar el capital.
+    /// </summary>
     public decimal Distributable(CompanyState c)
     {
+        decimal liabilities = _ledger.GetTrialBalance(c.Id).Where(r => r.Account.Type == AccountType.Pasivo).Sum(r => r.Balance);
         decimal unpaid = TaxesOf(c).Unpaid.Sum(o => (decimal)o.Total);
-        return Math.Max(0, Math.Floor(Math.Min(RetainedEarnings(c), Cash(c) - unpaid)));
+        decimal freeCash = Cash(c) - Math.Max(liabilities, unpaid) - CapitalOf(c);
+        return Math.Max(0, Math.Floor(Math.Min(RetainedEarnings(c), freeCash)));
     }
 
     /// <summary>Facturación de las últimas 4 estaciones (incluida la actual).</summary>
