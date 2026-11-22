@@ -1,0 +1,38 @@
+// Reglas de BYMZ y del ALyC Valle Inversiones (§10 de docs/DISENO.md).
+{
+  // Costos de cada operación (sobre el monto bruto). El IVA se cobra sobre la comisión.
+  "commissionRate": 0.005,
+  "minimumCommission": 1,
+  "marketFeeRate": 0.0008,
+  "commissionIvaRate": 0.21,
+
+  // Spread bid/ask del creador de mercado e impacto de las órdenes grandes
+  // (impacto = impactCoefficient × cantidad / volumen diario típico, hasta maxImpact).
+  "stockSpread": 0.005,
+  "letraSpread": 0.002,
+  "impactCoefficient": 0.1,
+  "maxImpact": 0.10,
+
+  // Retención sobre dividendos (pago único y definitivo para personas humanas).
+  "dividendWithholding": 0.07,
+
+  // Tasa de referencia mensual = inflación del período + realRate (mínimo minimumRate).
+  "realRate": 0.005,
+  "minimumRate": 0.001,
+
+  // Letras del Tesoro de Ferngill (LEFE): cupón cero, VN 100, se licitan al empezar cada estación.
+  "letraTenors": [
+    { "days": 28,  "premium": 0.0 },
+    { "days": 56,  "premium": 0.002 },
+    { "days": 112, "premium": 0.005 }
+  ],
+  "letraFaceValue": 100,
+
+  // Cauciones colocadoras: plazos en días, tasa = caucionRateFactor × tasa de referencia, monto mínimo.
+  "caucionTerms": [1, 7, 14, 28],
+  "caucionRateFactor": 0.85,
+  "caucionMinimum": 100,
+
+  "merzuBase": 1000,
+  "intradayTicks": 48
+}

@@ -1,0 +1,40 @@
+// Empresas que cotizan en BYMZ (§8.1 de docs/DISENO.md).
+//   shares         acciones en circulación (pondera el MERZU)
+//   baseEps        utilidad por acción anual en oro del año 1 (se indexa por IPC); precio inicial = pe × baseEps
+//   payout         fracción de la utilidad que se reparte como dividendo cada estación
+//   volatility     desvío diario del sentimiento; meanReversion: cuánto se corrige por día
+//   averageVolume  volumen diario típico (las órdenes grandes mueven el precio)
+//   exposures      cómo afectan los precios reales de los commodities a sus ingresos
+//                  (peso positivo: le conviene que suban; negativo: son su costo)
+[
+  { "ticker": "JOJA", "name": "Joja Corporation", "sector": "Retail",
+    "shares": 8000000, "baseEps": 5.0, "pe": 14, "payout": 0.5, "volatility": 0.015, "meanReversion": 0.03, "averageVolume": 30000,
+    "exposures": [ { "target": "all", "weight": 0.3 } ] },
+  { "ticker": "COAV", "name": "Cooperativa Agrícola del Valle", "sector": "Agro",
+    "shares": 3000000, "baseEps": 3.0, "pe": 10, "payout": 0.6, "volatility": 0.02, "meanReversion": 0.04, "averageVolume": 15000,
+    "exposures": [ { "target": "sector:Hortalizas", "weight": 0.5 }, { "target": "sector:Granos", "weight": 0.4 }, { "target": "sector:Frutas", "weight": 0.3 } ] },
+  { "ticker": "CALI", "name": "Minera Calico", "sector": "Minería",
+    "shares": 4000000, "baseEps": 6.0, "pe": 9, "payout": 0.4, "volatility": 0.025, "meanReversion": 0.03, "averageVolume": 20000,
+    "exposures": [ { "target": "sector:Mineria", "weight": 1.2 } ] },
+  { "ticker": "GEMS", "name": "Pesquera Mar de las Gemas", "sector": "Pesca",
+    "shares": 2000000, "baseEps": 2.0, "pe": 11, "payout": 0.5, "volatility": 0.03, "meanReversion": 0.04, "averageVolume": 10000,
+    "exposures": [ { "target": "pescado", "weight": 1.0 } ] },
+  { "ticker": "FCVA", "name": "Ferrocarril del Valle", "sector": "Transporte",
+    "shares": 5000000, "baseEps": 3.5, "pe": 12, "payout": 0.6, "volatility": 0.015, "meanReversion": 0.03, "averageVolume": 12000,
+    "exposures": [ { "target": "all", "weight": 0.4 } ] },
+  { "ticker": "ZUEN", "name": "Zuzu Energía", "sector": "Energía",
+    "shares": 6000000, "baseEps": 4.0, "pe": 13, "payout": 0.7, "volatility": 0.012, "meanReversion": 0.03, "averageVolume": 15000,
+    "exposures": [] },
+  { "ticker": "BZUZ", "name": "Banco de Zuzu", "sector": "Finanzas",
+    "shares": 5000000, "baseEps": 10.0, "pe": 8, "payout": 0.4, "volatility": 0.02, "meanReversion": 0.03, "averageVolume": 25000,
+    "exposures": [ { "target": "all", "weight": 0.2 } ] },
+  { "ticker": "GOTR", "name": "Gotoro Trading", "sector": "Comercio exterior",
+    "shares": 3000000, "baseEps": 4.5, "pe": 10, "payout": 0.5, "volatility": 0.025, "meanReversion": 0.04, "averageVolume": 12000,
+    "exposures": [ { "target": "sector:Granos", "weight": 0.6 }, { "target": "sector:Mineria", "weight": 0.3 } ] },
+  { "ticker": "DEST", "name": "Destilería del Valle", "sector": "Bebidas",
+    "shares": 2000000, "baseEps": 6.0, "pe": 15, "payout": 0.5, "volatility": 0.02, "meanReversion": 0.03, "averageVolume": 8000,
+    "exposures": [ { "target": "vino", "weight": 0.8 }, { "target": "trigo", "weight": -0.3 }, { "target": "maiz", "weight": -0.2 } ] },
+  { "ticker": "CONS", "name": "Constructora Zuzu", "sector": "Construcción",
+    "shares": 4000000, "baseEps": 2.5, "pe": 11, "payout": 0.4, "volatility": 0.022, "meanReversion": 0.03, "averageVolume": 15000,
+    "exposures": [ { "target": "hierro", "weight": -0.3 }, { "target": "cobre", "weight": -0.2 }, { "target": "all", "weight": 0.2 } ] }
+]

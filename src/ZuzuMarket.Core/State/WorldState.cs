@@ -4,6 +4,7 @@ using ZuzuMarket.Core.Commodities;
 using ZuzuMarket.Core.Events;
 using ZuzuMarket.Core.Ledger;
 using ZuzuMarket.Core.Macro;
+using ZuzuMarket.Core.Markets;
 using ZuzuMarket.Core.Taxation;
 using ZuzuMarket.Core.Time;
 
@@ -12,8 +13,8 @@ namespace ZuzuMarket.Core.State;
 /// <summary>Todo el estado del mod para una partida. Se guarda junto con la partida.</summary>
 public sealed class WorldState
 {
-    /// <summary>1: Fase 0. 2: inflación, commodities y eventos. 3: impuestos.</summary>
-    public const int CurrentSchemaVersion = 3;
+    /// <summary>1: Fase 0. 2: inflación, commodities y eventos. 3: impuestos. 4: bolsa.</summary>
+    public const int CurrentSchemaVersion = 4;
 
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
 
@@ -36,6 +37,8 @@ public sealed class WorldState
     public EventsState Events { get; set; } = new();
 
     public TaxState Taxes { get; set; } = new();
+
+    public MarketsState Markets { get; set; } = new();
 }
 
 public sealed class WorldStateSerializationException : Exception
@@ -94,6 +97,9 @@ public static class WorldStateSerializer
 
         // 2 → 3: el alta impositiva (Monotributo, categoría A) se hace el primer día que se simula después de cargar.
         state.Taxes ??= new TaxState();
+
+        // 3 → 4: la bolsa arranca el día en que se carga la partida (precios en su valor fundamental, MERZU = 1.000).
+        state.Markets ??= new MarketsState();
         state.SchemaVersion = WorldState.CurrentSchemaVersion;
         return state;
     }

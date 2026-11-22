@@ -42,13 +42,25 @@ public static class SystemAccounts
     public const string Abl = "5.3.05";
     public const string Ganancias = "5.3.06";
     public const string InteresesYMultasFiscales = "5.4.02";
+    public const string CuentaComitente = "1.1.03";
+    public const string Acciones = "1.3.01";
+    public const string Letras = "1.3.02";
+    public const string CaucionesColocadas = "1.3.03";
+    public const string ResultadosVentaPositivos = "4.2.01";
+    public const string Dividendos = "4.2.02";
+    public const string InteresesGanados = "4.2.03";
+    public const string ResultadosVentaNegativos = "5.4.01";
+    public const string ComisionesBursatiles = "5.4.03";
+    public const string RetencionDividendos = "5.3.07";
 
     public static IReadOnlyList<string> All { get; } = new[]
     {
         Caja, Capital, IngresosNoClasificados, EgresosNoClasificados, DiferenciasDeRedondeo,
         DeudoresPorVentas, IvaCreditoFiscal, AnticiposGanancias, IvaDebitoFiscal, ImpuestosAPagarArf,
         ImpuestosAPagarArpv, TasasAPagarMunicipalidad, Ventas, ComprasEnTiendas, Monotributo, IngresosBrutos,
-        SeguridadHigiene, Abl, Ganancias, InteresesYMultasFiscales,
+        SeguridadHigiene, Abl, Ganancias, InteresesYMultasFiscales, CuentaComitente, Acciones, Letras,
+        CaucionesColocadas, ResultadosVentaPositivos, Dividendos, InteresesGanados, ResultadosVentaNegativos,
+        ComisionesBursatiles, RetencionDividendos,
     };
 }
 

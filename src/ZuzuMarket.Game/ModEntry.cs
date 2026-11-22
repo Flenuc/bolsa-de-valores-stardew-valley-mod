@@ -10,6 +10,7 @@ using ZuzuMarket.Game.Commands;
 using ZuzuMarket.Game.Content;
 using ZuzuMarket.Game.Hooks;
 using ZuzuMarket.Game.Persistence;
+using ZuzuMarket.Game.UI;
 
 namespace ZuzuMarket.Game;
 
@@ -26,6 +27,9 @@ internal sealed class ModEntry : Mod
     private TaxMail? _taxMail;
     private MoneyTracker? _money;
     private Municipalidad? _municipalidad;
+    private BrokerMail? _brokerMail;
+    private PhoneService? _phone;
+    private TerminalActions? _terminalActions;
     private EconomySimulation? _simulation;
 
     /// <summary>Si el estado guardado estaba dañado, no se guarda nada encima para no perderlo.</summary>
@@ -82,6 +86,10 @@ internal sealed class ModEntry : Mod
         _taxMail = new TaxMail(helper, ModManifest, _config, () => Simulation);
         _money = new MoneyTracker(() => Simulation);
         _municipalidad = new Municipalidad(helper, Monitor, () => Simulation, _taxMail, _money);
+        _brokerMail = new BrokerMail(helper, ModManifest, _config, _taxMail);
+        _phone = new PhoneService(Monitor, _config);
+        _terminalActions = new TerminalActions(_brokerMail, _money);
+        var objects = new ModObjects(helper.Translation);
 
         var harmony = new Harmony(ModManifest.UniqueID);
         SellPricePatch.Apply(harmony, Monitor);
@@ -98,8 +106,11 @@ internal sealed class ModEntry : Mod
         helper.Events.GameLoop.UpdateTicked += _money.OnUpdateTicked;
         helper.Events.Player.InventoryChanged += _money.OnInventoryChanged;
         helper.Events.Input.ButtonPressed += _municipalidad.OnButtonPressed;
+        helper.Events.Input.ButtonPressed += OnButtonPressed;
+        helper.Events.Content.AssetRequested += objects.OnAssetRequested;
+        helper.Events.Content.AssetRequested += _brokerMail.OnAssetRequested;
 
-        new ConsoleCommands(helper, Monitor, _config, () => Simulation, ResetSimulation, _news, _municipalidad, _taxMail).Register();
+        new ConsoleCommands(helper, Monitor, _config, () => Simulation, ResetSimulation, _news, _municipalidad, _taxMail, _phone, OpenTerminal).Register();
     }
 
     private void OnSaveLoaded(object? sender, SaveLoadedEventArgs e)
@@ -154,6 +165,8 @@ internal sealed class ModEntry : Mod
         Helper.GameContent.InvalidateCache(BuildingInflation.Asset);
         _news!.Publish(info);
         _taxMail!.Publish(info.TaxNotices);
+        _brokerMail!.Publish(info.MarketNotices, Simulation.Broker.IsOpen);
+        _phone!.Place();
         if (_config.AutoDebit)
         {
             _municipalidad!.AutoDebit(Simulation);
@@ -193,6 +206,9 @@ internal sealed class ModEntry : Mod
 
         MoneyBridge.Reconcile(Simulation, Helper.Translation.Get("entry.reconcile-saving"));
         _store!.Save(Simulation.Snapshot());
+
+        // El teléfono se vuelve a poner a la mañana: así la partida guardada no depende del mod.
+        _phone?.Remove();
         _money?.Reset();
     }
 
@@ -200,6 +216,34 @@ internal sealed class ModEntry : Mod
     {
         Simulation = null;
         _loadFailed = false;
+    }
+
+    /// <summary>Teléfono de Valle Inversiones o Terminal Bursátil → abre la Terminal.</summary>
+    private void OnButtonPressed(object? sender, ButtonPressedEventArgs e)
+    {
+        if (Simulation is null || !Context.IsPlayerFree || !e.Button.IsActionButton() || Game1.currentLocation is null)
+        {
+            return;
+        }
+
+        Microsoft.Xna.Framework.Vector2 tile = e.Cursor.GrabTile;
+        foreach (Microsoft.Xna.Framework.Vector2 candidate in new[] { tile, tile + new Microsoft.Xna.Framework.Vector2(0, 1) })
+        {
+            if (Game1.currentLocation.objects.TryGetValue(candidate, out StardewValley.Object? obj) && ModObjects.IsBrokerObject(obj.QualifiedItemId))
+            {
+                Helper.Input.Suppress(e.Button);
+                OpenTerminal();
+                return;
+            }
+        }
+    }
+
+    private void OpenTerminal()
+    {
+        if (Simulation is not null)
+        {
+            Game1.activeClickableMenu = new TerminalMenu(Helper, Simulation, _terminalActions!);
+        }
     }
 
     private EconomySimulation CreateSimulation() =>

@@ -116,7 +116,7 @@ internal sealed class Municipalidad
                 Game1.player.Money -= (int)amount;
                 paidTotal += amount;
                 paidCount++;
-                _monitor.Log($"Pagada la boleta {o.Id} ({o.Kind} {o.Period}): {amount}g.", LogLevel.Debug);
+                _monitor.Log($"Pagada la boleta {o.Id} ({TaxText.Tax(I18n, o.Kind)}, {GameDateBridge.Format(I18n, o.Period)}): {amount}g.", LogLevel.Debug);
             }
         }
 

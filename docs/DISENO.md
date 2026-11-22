@@ -331,6 +331,14 @@ La ARF/ARPV/Municipalidad envían la boleta por **correo**; se paga en la termin
 
 ## 10. Mercado de capitales
 
+> **Implementado en la Fase 3** (`Core/Markets`, datos en `data/companies.json` y `data/markets.json`): cuenta
+> comitente en Valle Inversiones, 10 acciones con precio = P/E × UPA (UPA indexada por IPC y expuesta a los precios
+> reales de los commodities) × e^sentimiento, camino intradiario de 48 ticks, MERZU por capitalización, dividendos por
+> estación con retención del 7%, Letras LEFE a 28/56/112 días, cauciones colocadoras a 1/7/14/28 días, órdenes de
+> mercado T+0 con spread, impacto, comisión 0,5%, derechos 0,08% e IVA sobre la comisión. Tasa de referencia
+> provisoria: inflación del período + 0,5% real. Terminal Bursátil (UI) y teléfono de Valle Inversiones en el pueblo.
+> Pendiente: órdenes límite, liquidación T+1, caución tomadora (Fase 6), arte definitivo.
+
 ### 10.1 Infraestructura
 - **Cuenta comitente** en un **ALyC** (agente de bolsa) ficticio; se transfiere oro desde/hacia la Caja.
 - **Market maker** simulado con spread bid/ask y slippage según volumen; órdenes **de mercado** y **límite**

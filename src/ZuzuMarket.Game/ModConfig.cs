@@ -16,6 +16,16 @@ internal sealed class ModConfig
     /// <summary>Paga solo las boletas el día del vencimiento (o después, si estaban vencidas) cuando alcanza el oro.</summary>
     public bool AutoDebit { get; set; } = true;
 
+    /// <summary>Tile del pueblo donde está el teléfono de Valle Inversiones (se mueve con <c>zuzu_place_phone</c>).</summary>
+    public TilePosition PhonePosition { get; set; } = new() { X = 45, Y = 55 };
+
     /// <summary>Habilita comandos de depuración de consola, como <c>zuzu_reset</c> y <c>zuzu_event</c>.</summary>
     public bool DebugMode { get; set; }
+}
+
+internal sealed class TilePosition
+{
+    public int X { get; set; }
+
+    public int Y { get; set; }
 }

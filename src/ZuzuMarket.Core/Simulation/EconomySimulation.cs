@@ -3,6 +3,7 @@ using ZuzuMarket.Core.Data;
 using ZuzuMarket.Core.Events;
 using ZuzuMarket.Core.Ledger;
 using ZuzuMarket.Core.Macro;
+using ZuzuMarket.Core.Markets;
 using ZuzuMarket.Core.Random;
 using ZuzuMarket.Core.State;
 using ZuzuMarket.Core.Taxation;
@@ -40,7 +41,8 @@ public sealed record DayStartedInfo(
     int DaysAdvanced,
     IReadOnlyList<EventDefinition> NewEvents,
     IReadOnlyList<InflationRecord> PublishedInflation,
-    IReadOnlyList<TaxNotice> TaxNotices);
+    IReadOnlyList<TaxNotice> TaxNotices,
+    IReadOnlyList<MarketNotice> MarketNotices);
 
 /// <summary>
 /// Orquestador: avanza el mundo económico un día por vez.
@@ -64,6 +66,8 @@ public sealed class EconomySimulation
         Market = new CommodityMarket(data, state.Commodities);
         Events = new EventEngine(data, state.Events);
         Taxes = new TaxEngine(data, state.Taxes, ledger, Difficulty);
+        Stocks = new StockMarket(data, state.Markets);
+        Broker = new Broker(data, state.Markets, ledger, Stocks, () => Inflation.PeriodRate, () => Taxes.Regime);
 
         if (!Inflation.HasStarted)
         {
@@ -72,6 +76,13 @@ public sealed class EconomySimulation
         }
 
         RecalculatePrices();
+
+        if (!Stocks.Started)
+        {
+            // Partida nueva, o partida del esquema 3 que recién migra: la bolsa arranca hoy.
+            Stocks.Start(state.CurrentDate, Market, Inflation.Index);
+            Broker.IssueLetras(state.CurrentDate);
+        }
     }
 
     public GameData Data { get; }
@@ -85,6 +96,10 @@ public sealed class EconomySimulation
     public EventEngine Events { get; }
 
     public TaxEngine Taxes { get; }
+
+    public StockMarket Stocks { get; }
+
+    public Broker Broker { get; }
 
     public ulong Seed => _state.Seed;
 
@@ -165,6 +180,7 @@ public sealed class EconomySimulation
         var newEvents = new List<EventDefinition>();
         var published = new List<InflationRecord>();
         var taxNotices = new List<TaxNotice>();
+        var marketNotices = new List<MarketNotice>();
 
         if (daysAdvanced < 0)
         {
@@ -181,7 +197,7 @@ public sealed class EconomySimulation
             for (int i = 1; i <= daysAdvanced; i++)
             {
                 EconomicDate day = previous.AddDays(i);
-                StepDay(day, i == daysAdvanced ? weather : Weather.Sun, farm, newEvents, published, taxNotices);
+                StepDay(day, i == daysAdvanced ? weather : Weather.Sun, farm, newEvents, published, taxNotices, marketNotices);
             }
         }
 
@@ -193,7 +209,7 @@ public sealed class EconomySimulation
 
         bool newPeriod = daysAdvanced > 0 && date.FiscalPeriod != previous.FiscalPeriod;
         bool newYear = daysAdvanced > 0 && date.Year != previous.Year;
-        return new DayStartedInfo(date, date.IsBusinessDay, newPeriod, newYear, daysAdvanced, newEvents, published, taxNotices);
+        return new DayStartedInfo(date, date.IsBusinessDay, newPeriod, newYear, daysAdvanced, newEvents, published, taxNotices, marketNotices);
     }
 
     /// <summary>Se llama al terminar el día, antes de guardar.</summary>
@@ -294,13 +310,16 @@ public sealed class EconomySimulation
         Taxes.RecordSales(_state.CurrentDate, items, channel);
     }
 
-    private void StepDay(EconomicDate day, Weather weather, FarmSnapshot farm, List<EventDefinition> newEvents, List<InflationRecord> published, List<TaxNotice> taxNotices)
+    private void StepDay(EconomicDate day, Weather weather, FarmSnapshot farm, List<EventDefinition> newEvents, List<InflationRecord> published, List<TaxNotice> taxNotices, List<MarketNotice> marketNotices)
     {
         _state.CurrentDate = day;
         DifficultyDefinition difficulty = Difficulty;
 
         if (_state.Inflation.CurrentPeriod != day.FiscalPeriod)
         {
+            // Cierre de la estación: dividendos con la UPA del último cierre.
+            marketNotices.AddRange(Broker.PayDividends(day));
+
             InflationRecord? record = Inflation.ClosePeriod();
             if (record is not null)
             {
@@ -309,6 +328,7 @@ public sealed class EconomySimulation
             }
 
             Inflation.StartPeriod(day.FiscalPeriod, difficulty, RandomStreams.For(_state.Seed, day, InflationStream));
+            marketNotices.Add(Broker.IssueLetras(day));
         }
 
         if (Taxes.Started)
@@ -328,6 +348,8 @@ public sealed class EconomySimulation
 
         Inflation.AdvanceDay();
         Market.Step(day, Inflation.Index, (double)difficulty.PriceVolatility, _state.Seed, c => Events.PriceImpact(c, day));
+        Stocks.Step(day, Market, Inflation.Index, (double)difficulty.PriceVolatility, _state.Seed);
+        marketNotices.AddRange(Broker.OnDay(day));
         taxNotices.AddRange(Taxes.OnDay(day));
     }
 

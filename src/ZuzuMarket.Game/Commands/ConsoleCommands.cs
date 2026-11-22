@@ -7,6 +7,7 @@ using ZuzuMarket.Core.Data;
 using ZuzuMarket.Core.Events;
 using ZuzuMarket.Core.Ledger;
 using ZuzuMarket.Core.Macro;
+using ZuzuMarket.Core.Markets;
 using ZuzuMarket.Core.Random;
 using ZuzuMarket.Core.Simulation;
 using ZuzuMarket.Core.Taxation;
@@ -28,9 +29,13 @@ internal sealed class ConsoleCommands
     private readonly NewsService _news;
     private readonly Municipalidad _municipalidad;
     private readonly TaxMail _taxMail;
+    private readonly PhoneService _phone;
+    private readonly Action _openTerminal;
 
-    public ConsoleCommands(IModHelper helper, IMonitor monitor, ModConfig config, Func<EconomySimulation?> getSimulation, Action reset, NewsService news, Municipalidad municipalidad, TaxMail taxMail)
+    public ConsoleCommands(IModHelper helper, IMonitor monitor, ModConfig config, Func<EconomySimulation?> getSimulation, Action reset, NewsService news, Municipalidad municipalidad, TaxMail taxMail, PhoneService phone, Action openTerminal)
     {
+        _phone = phone;
+        _openTerminal = openTerminal;
         _news = news;
         _municipalidad = municipalidad;
         _taxMail = taxMail;
@@ -59,6 +64,11 @@ internal sealed class ConsoleCommands
         _helper.ConsoleCommands.Add("zuzu_here", I18n.Get("cmd.here.help"), WithSimulation(Here));
         _helper.ConsoleCommands.Add("zuzu_pay", I18n.Get("cmd.pay.help"), WithSimulation(PayCmd));
         _helper.ConsoleCommands.Add("zuzu_regime", I18n.Get("cmd.regime.help"), WithSimulation(RegimeCmd));
+        _helper.ConsoleCommands.Add("zuzu_quotes", I18n.Get("cmd.quotes.help"), WithSimulation(Quotes));
+        _helper.ConsoleCommands.Add("zuzu_portfolio", I18n.Get("cmd.portfolio.help"), WithSimulation(PortfolioCmd));
+        _helper.ConsoleCommands.Add("zuzu_terminal", I18n.Get("cmd.terminal.help"), WithSimulation(TerminalCmd));
+        _helper.ConsoleCommands.Add("zuzu_trade", I18n.Get("cmd.trade.help"), WithSimulation(TradeCmd));
+        _helper.ConsoleCommands.Add("zuzu_place_phone", I18n.Get("cmd.place-phone.help"), WithSimulation(PlacePhone));
     }
 
     private Action<string, string[]> WithSimulation(Action<EconomySimulation, string[]> action) => (_, args) =>
@@ -456,6 +466,115 @@ internal sealed class ConsoleCommands
 
         sim.Taxes.SetRegime(regime.Value, sim.CurrentDate);
         _monitor.Log(I18n.Get("cmd.regime.done", new { regime = TaxText.Regime(I18n, regime.Value) }), LogLevel.Info);
+    }
+
+    private void Quotes(EconomySimulation sim, string[] args)
+    {
+        int time = Game1.timeOfDay;
+        var sb = new StringBuilder();
+        sb.AppendLine(I18n.Get("cmd.quotes.title", new
+        {
+            date = GameDateBridge.Format(I18n, sim.CurrentDate),
+            time = Game1.getTimeOfDayString(time),
+            merzu = Formatting.Number(I18n, sim.Stocks.MerzuAt(time), "#,0.00"),
+            open = Broker.IsMarketOpen(sim.CurrentDate, time) ? I18n.Get("terminal.market-open") : I18n.Get("terminal.market-closed"),
+        }));
+        foreach (CompanyDefinition c in sim.Stocks.Companies)
+        {
+            StockState s = sim.Stocks.Get(c.Ticker);
+            double price = sim.Stocks.PriceAt(c.Ticker, time);
+            double change = s.PreviousClose > 0 ? (price / s.PreviousClose) - 1 : 0;
+            sb.AppendLine($"  {c.Ticker,-5} {c.Name,-32} {price,10:0.00}g {Formatting.Percent(I18n, change, signed: true),8}");
+        }
+
+        foreach (LetraSeries l in sim.Broker.ActiveLetras(sim.CurrentDate))
+        {
+            sb.AppendLine($"  {l.Id,-12} {GameDateBridge.Format(I18n, l.Maturity),-26} {sim.Broker.LetraPrice(l, sim.CurrentDate),10:0.00}g {Formatting.Percent(I18n, sim.Broker.LetraRate(l)),8}");
+        }
+
+        sb.Append(I18n.Get("cmd.quotes.rates", new { reference = Formatting.Percent(I18n, sim.Broker.ReferenceRate), caucion = Formatting.Percent(I18n, sim.Broker.CaucionRate) }));
+        _monitor.Log(sb.ToString(), LogLevel.Info);
+    }
+
+    private void PortfolioCmd(EconomySimulation sim, string[] args)
+    {
+        if (!sim.Broker.IsOpen)
+        {
+            _monitor.Log(I18n.Get("error.NoAccount"), LogLevel.Info);
+            return;
+        }
+
+        int time = Game1.timeOfDay;
+        var sb = new StringBuilder();
+        sb.AppendLine(I18n.Get("cmd.portfolio.title"));
+        foreach ((string ticker, Holding h) in sim.Broker.State.Stocks)
+        {
+            sb.AppendLine($"  {ticker,-12} {h.Quantity,8} × {sim.Stocks.PriceAt(ticker, time),10:0.00}g  (costo {h.AverageCost:0.00}g)");
+        }
+
+        foreach ((string id, Holding h) in sim.Broker.State.Letras)
+        {
+            double price = sim.Broker.FindLetra(id) is { } l ? sim.Broker.LetraPrice(l, sim.CurrentDate) : 0;
+            sb.AppendLine($"  {id,-12} {h.Quantity,8} × {price,10:0.00}g  (costo {h.AverageCost:0.00}g)");
+        }
+
+        foreach (Caucion c in sim.Broker.State.Cauciones)
+        {
+            sb.AppendLine($"  Caución #{c.Id}: {Money(c.Principal)} + {Money(c.Interest)} → {GameDateBridge.Format(I18n, c.Maturity)}");
+        }
+
+        sb.Append(I18n.Get("cmd.portfolio.totals", new
+        {
+            cash = Money(sim.Broker.Cash),
+            value = Money(sim.Broker.PortfolioValue(sim.CurrentDate, time)),
+        }));
+        _monitor.Log(sb.ToString(), LogLevel.Info);
+    }
+
+    private void TerminalCmd(EconomySimulation sim, string[] args)
+    {
+        if (!_config.DebugMode)
+        {
+            _monitor.Log(I18n.Get("cmd.debug-only", new { command = "zuzu_terminal" }), LogLevel.Warn);
+            return;
+        }
+
+        _openTerminal();
+    }
+
+    private void TradeCmd(EconomySimulation sim, string[] args)
+    {
+        if (!_config.DebugMode)
+        {
+            _monitor.Log(I18n.Get("cmd.debug-only", new { command = "zuzu_trade" }), LogLevel.Warn);
+            return;
+        }
+
+        if (args.Length < 3 || !long.TryParse(args[2], out long quantity) || args[0] is not ("buy" or "sell"))
+        {
+            _monitor.Log(I18n.Get("cmd.trade.usage"), LogLevel.Info);
+            return;
+        }
+
+        TradeSide side = args[0] == "buy" ? TradeSide.Buy : TradeSide.Sell;
+        TradeQuote q = sim.Broker.Execute(args[1], side, quantity, sim.CurrentDate, Game1.timeOfDay);
+        _monitor.Log(q.IsValid
+            ? I18n.Get("cmd.trade.done", new { instrument = q.Instrument, quantity = q.Quantity, total = Money(q.Total) })
+            : I18n.Get($"error.{q.Error}"), q.IsValid ? LogLevel.Info : LogLevel.Warn);
+    }
+
+    private void PlacePhone(EconomySimulation sim, string[] args)
+    {
+        if (Game1.currentLocation?.Name != "Town")
+        {
+            _monitor.Log(I18n.Get("cmd.place-phone.not-town"), LogLevel.Warn);
+            return;
+        }
+
+        var tile = Game1.player.GetGrabTile();
+        _phone.MoveTo((int)tile.X, (int)tile.Y);
+        _helper.WriteConfig(_config);
+        _monitor.Log(I18n.Get("cmd.place-phone.done", new { x = (int)tile.X, y = (int)tile.Y }), LogLevel.Info);
     }
 
     /// <summary>Descripción del asiento en el idioma actual (si tiene clave de traducción).</summary>

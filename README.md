@@ -6,9 +6,10 @@ con cauciones, letras, bonos, obligaciones negociables, acciones, futuros con en
 
 📄 Ver el [documento de diseño](docs/DISENO.md).
 
-**Estado:** Fase 2 — precios de mercado con oferta, estación, eventos e inflación (Fase 1), y ahora la granja lleva
-contabilidad real y tributa: Monotributo (o Responsable Inscripto), IVA, Ingresos Brutos, Seguridad e Higiene, ABL y
-Ganancias, con boletas por correo, débito automático, pago en la Municipalidad y mora. Requiere Stardew Valley 1.6 y SMAPI 4.x.
+**Estado:** Fase 3 — precios de mercado con oferta, estación, eventos e inflación; contabilidad real e impuestos
+(Monotributo/RI, IVA, IIBB, Seguridad e Higiene, ABL, Ganancias); y ahora la **Bolsa de Zuzu**: cuenta comitente en
+Valle Inversiones, 10 acciones con índice MERZU, Letras del Tesoro y cauciones, desde el teléfono del pueblo o la
+Terminal Bursátil fabricable. Requiere Stardew Valley 1.6 y SMAPI 4.x.
 
 ## Compilar
 
@@ -31,6 +32,7 @@ Si el juego no está en la ruta estándar de Steam/GOG, agregá `<GamePath>` en 
 | `NewsHud` | `true` | Muestra las noticias económicas como aviso en pantalla. |
 | `NewsLetters` | `true` | Manda cartas del Diario de Zuzu, del INDEF y del fisco al buzón. |
 | `AutoDebit` | `true` | Paga solo las boletas el día del vencimiento (o las vencidas) si alcanza el oro. |
+| `PhonePosition` | `{ "X": 45, "Y": 55 }` | Tile del pueblo donde está el teléfono de Valle Inversiones (se cambia con `zuzu_place_phone`). |
 | `DebugMode` | `false` | Habilita comandos de depuración como `zuzu_reset` y `zuzu_event`. |
 
 ## Comandos de consola (SMAPI)
@@ -49,5 +51,10 @@ Si el juego no está en la ruta estándar de Steam/GOG, agregá `<GamePath>` en 
 | `zuzu_here` | Ubicación y tile actual (para ubicar el escritorio de pago) |
 | `zuzu_pay [id]` | (solo `DebugMode`) paga boletas sin ir a la Municipalidad |
 | `zuzu_regime ri\|mono` | (solo `DebugMode`) cambia el régimen impositivo |
+| `zuzu_quotes` | Cotizaciones de BYMZ, Letras y tasas en este momento |
+| `zuzu_portfolio` | Tu cartera en Valle Inversiones |
+| `zuzu_place_phone` | Mueve el teléfono de Valle Inversiones al tile que tenés enfrente (en el pueblo) |
+| `zuzu_terminal` | (solo `DebugMode`) abre la Terminal Bursátil en cualquier lado |
+| `zuzu_trade buy\|sell <especie> <cant>` | (solo `DebugMode`) opera sin la Terminal |
 | `zuzu_rng <stream> [n]` | Valores del generador determinista para ese stream y día |
 | `zuzu_reset confirm` | (solo `DebugMode`) reinicia la economía de la partida |

@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ZuzuMarket.Core.Ledger;
+using ZuzuMarket.Core.Markets;
 using ZuzuMarket.Core.Taxation;
 
 namespace ZuzuMarket.Core.Data;
@@ -29,6 +30,8 @@ public static class GameDataLoader
     public const string DifficultiesFile = "difficulties.json";
     public const string EventsFile = "events.json";
     public const string TaxesFile = "taxes.json";
+    public const string CompaniesFile = "companies.json";
+    public const string MarketsFile = "markets.json";
 
     public static IReadOnlyList<string> RequiredDifficulties { get; } = new[] { "casual", "realista", "argentina" };
 
@@ -60,15 +63,17 @@ public static class GameDataLoader
         string? difficulties = Read(DifficultiesFile);
         string? events = Read(EventsFile);
         string? taxes = Read(TaxesFile);
-        if (accounts is null || commodities is null || difficulties is null || events is null || taxes is null)
+        string? companies = Read(CompaniesFile);
+        string? markets = Read(MarketsFile);
+        if (accounts is null || commodities is null || difficulties is null || events is null || taxes is null || companies is null || markets is null)
         {
             return new DataLoadResult(null, errors);
         }
 
-        return LoadFromJson(accounts, commodities, difficulties, events, taxes);
+        return LoadFromJson(accounts, commodities, difficulties, events, taxes, companies, markets);
     }
 
-    public static DataLoadResult LoadFromJson(string accountsJson, string commoditiesJson, string difficultiesJson, string eventsJson = "[]", string? taxesJson = null)
+    public static DataLoadResult LoadFromJson(string accountsJson, string commoditiesJson, string difficultiesJson, string eventsJson = "[]", string? taxesJson = null, string? companiesJson = null, string? marketsJson = null)
     {
         var errors = new List<string>();
         List<AccountDefinition>? accounts = Deserialize<List<AccountDefinition>>(accountsJson, AccountsFile, errors);
@@ -76,7 +81,9 @@ public static class GameDataLoader
         List<DifficultyDefinition>? difficulties = Deserialize<List<DifficultyDefinition>>(difficultiesJson, DifficultiesFile, errors);
         List<EventDefinition>? events = Deserialize<List<EventDefinition>>(eventsJson, EventsFile, errors);
         TaxRules? taxes = taxesJson is null ? new TaxRules() : Deserialize<TaxRules>(taxesJson, TaxesFile, errors);
-        if (accounts is null || commodities is null || difficulties is null || events is null || taxes is null)
+        List<CompanyDefinition>? companies = companiesJson is null ? new List<CompanyDefinition>() : Deserialize<List<CompanyDefinition>>(companiesJson, CompaniesFile, errors);
+        MarketRules? markets = marketsJson is null ? new MarketRules() : Deserialize<MarketRules>(marketsJson, MarketsFile, errors);
+        if (accounts is null || commodities is null || difficulties is null || events is null || taxes is null || companies is null || markets is null)
         {
             return new DataLoadResult(null, errors);
         }
@@ -90,13 +97,19 @@ public static class GameDataLoader
             ValidateTaxes(taxes, errors);
         }
 
+        ValidateCompanies(companies, commodities, errors);
+        if (marketsJson is not null)
+        {
+            ValidateMarkets(markets, errors);
+        }
+
         if (errors.Count > 0)
         {
             return new DataLoadResult(null, errors);
         }
 
         var chart = new ChartOfAccounts(accounts.Select(a => new Account(a.Code, a.Name, a.Type)));
-        return new DataLoadResult(new GameData(chart, commodities, difficulties, events, taxes), errors);
+        return new DataLoadResult(new GameData(chart, commodities, difficulties, events, taxes, companies, markets), errors);
     }
 
     private static T? Deserialize<T>(string json, string file, List<string> errors)
@@ -288,6 +301,77 @@ public static class GameDataLoader
                     errors.Add($"{EventsFile}: {e.Id} tiene un priceImpact desmedido ({effect.PriceImpact}).");
                 }
             }
+        }
+    }
+
+    private static void ValidateCompanies(List<CompanyDefinition> companies, List<CommodityDefinition> commodities, List<string> errors)
+    {
+        var tickers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var commodityIds = new HashSet<string>(commodities.Select(c => c.Id), StringComparer.OrdinalIgnoreCase);
+        var sectors = new HashSet<string>(commodities.Select(c => c.Sector), StringComparer.OrdinalIgnoreCase);
+        foreach (CompanyDefinition c in companies)
+        {
+            if (string.IsNullOrWhiteSpace(c.Ticker) || string.IsNullOrWhiteSpace(c.Name))
+            {
+                errors.Add($"{CompaniesFile}: hay una empresa sin ticker o sin nombre.");
+                continue;
+            }
+
+            if (!tickers.Add(c.Ticker))
+            {
+                errors.Add($"{CompaniesFile}: ticker duplicado {c.Ticker}.");
+            }
+
+            if (c.Shares <= 0 || c.BaseEps <= 0 || c.Pe <= 0 || c.AverageVolume <= 0)
+            {
+                errors.Add($"{CompaniesFile}: {c.Ticker} necesita shares, baseEps, pe y averageVolume > 0.");
+            }
+
+            if (c.Payout is < 0 or > 1 || c.Volatility is < 0 or > 0.2 || c.MeanReversion is <= 0 or >= 1)
+            {
+                errors.Add($"{CompaniesFile}: {c.Ticker} tiene payout, volatility o meanReversion fuera de rango.");
+            }
+
+            foreach (Exposure e in c.Exposures)
+            {
+                string target = e.Target ?? "";
+                bool valid = string.Equals(target, "all", StringComparison.OrdinalIgnoreCase)
+                    || (target.StartsWith(EventDefinition.SectorPrefix, StringComparison.OrdinalIgnoreCase)
+                        && sectors.Contains(target.Substring(EventDefinition.SectorPrefix.Length)))
+                    || commodityIds.Contains(target);
+                if (!valid)
+                {
+                    errors.Add($"{CompaniesFile}: {c.Ticker} está expuesta a un destino inexistente: \"{target}\".");
+                }
+            }
+        }
+    }
+
+    private static void ValidateMarkets(MarketRules m, List<string> errors)
+    {
+        if (m.CommissionRate is < 0 or > 0.1m || m.MarketFeeRate is < 0 or > 0.1m || m.CommissionIvaRate is < 0 or > 1 || m.DividendWithholding is < 0 or > 1)
+        {
+            errors.Add($"{MarketsFile}: comisiones, derechos, IVA o retención fuera de rango.");
+        }
+
+        if (m.StockSpread is < 0 or > 0.2 || m.LetraSpread is < 0 or > 0.2 || m.MaxImpact is < 0 or > 0.5)
+        {
+            errors.Add($"{MarketsFile}: spreads o impacto fuera de rango.");
+        }
+
+        if (m.LetraTenors.Count == 0 || m.LetraTenors.Any(t => t.Days < 1) || m.LetraFaceValue <= 0)
+        {
+            errors.Add($"{MarketsFile}: se necesita al menos un plazo de Letras (days >= 1) y letraFaceValue > 0.");
+        }
+
+        if (m.CaucionTerms.Count == 0 || m.CaucionTerms.Any(d => d < 1) || m.CaucionMinimum < 0)
+        {
+            errors.Add($"{MarketsFile}: se necesita al menos un plazo de caución (>= 1 día).");
+        }
+
+        if (m.IntradayTicks < 1 || m.MerzuBase <= 0)
+        {
+            errors.Add($"{MarketsFile}: intradayTicks y merzuBase deben ser positivos.");
         }
     }
 
