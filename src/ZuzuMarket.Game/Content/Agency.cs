@@ -19,14 +19,28 @@ internal sealed class Agency
     /// <summary>Muebles por palabra clave en el nombre interno (Data/Furniture), con su posición relativa.</summary>
     private static readonly (string[] Keywords, Func<AgencyLayout, Point> Tile)[] Decor =
     {
+        // Mostrador: dos mesas delante de Julián y sillas para los clientes.
         (new[] { "Oak Table", "Walnut Table", "Table" }, l => l.Desk),
-        (new[] { "Bookcase", "Book Shelf", "Bookshelf" }, l => new Point(1, l.Julian.Y - 1)),
-        (new[] { "Bookcase", "Book Shelf", "Bookshelf" }, l => new Point(l.Width - 3, l.Julian.Y - 1)),
+        (new[] { "Oak Chair", "Wooden Chair", "Chair" }, l => new Point(l.Desk.X, l.Desk.Y + 2)),
+        (new[] { "Oak Chair", "Wooden Chair", "Chair" }, l => new Point(l.Desk.X + 2, l.Desk.Y + 2)),
+        // Bibliotecas contra la pared, a los costados.
+        (new[] { "Bookcase", "Book Shelf", "Bookshelf" }, l => new Point(1, l.Julian.Y)),
+        (new[] { "Bookcase", "Book Shelf", "Bookshelf" }, l => new Point(3, l.Julian.Y)),
+        (new[] { "Bookcase", "Book Shelf", "Bookshelf" }, l => new Point(l.Width - 3, l.Julian.Y)),
+        // Cuadros en la pared.
+        (new[] { "Painting", "Picture" }, l => new Point(l.Julian.X - 3, l.Julian.Y - 2)),
+        (new[] { "Painting", "Picture" }, l => new Point(l.Julian.X + 2, l.Julian.Y - 2)),
+        // Sala de espera abajo: alfombra, sillón y plantas.
+        (new[] { "Red Rug", "Brown Rug", "Rug" }, l => new Point((l.Width / 2) - 1, (l.Height / 2) + 1)),
+        (new[] { "Brown Armchair", "Armchair" }, l => new Point(1, l.Height / 2)),
+        (new[] { "Brown Armchair", "Armchair" }, l => new Point(l.Width - 2, l.Height / 2)),
         (new[] { "House Plant", "Plant" }, l => new Point(1, l.Height - 3)),
         (new[] { "House Plant", "Plant" }, l => new Point(l.Width - 2, l.Height - 3)),
-        (new[] { "Red Rug", "Brown Rug", "Rug" }, l => new Point((l.Width / 2) - 1, l.Height / 2)),
-        (new[] { "Oak Chair", "Wooden Chair", "Chair" }, l => new Point(l.Desk.X, l.Desk.Y + 2)),
     };
+
+    /// <summary>Versión de la decoración: si cambia, se vuelve a amueblar.</summary>
+    private const string FurnitureVersion = "2";
+    private const string FurnitureKey = "Flenuc.ZuzuMarket/FurnitureVersion";
 
     private readonly IModHelper _helper;
     private readonly IMonitor _monitor;
@@ -93,11 +107,15 @@ internal sealed class Agency
             return;
         }
 
-        if (location.furniture.Count == 0)
+        if (location.furniture.Count == 0 || !location.modData.TryGetValue(FurnitureKey, out string? version) || version != FurnitureVersion)
         {
+            location.furniture.Clear();
             Furnish(location, layout);
+            location.modData[FurnitureKey] = FurnitureVersion;
         }
 
+        // La Terminal de la mañana anterior (si quedó en otro lugar) se reemplaza.
+        Remove();
         var tile = new Vector2(layout.Terminal.X, layout.Terminal.Y);
         if (!location.objects.ContainsKey(tile))
         {
