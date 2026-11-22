@@ -107,7 +107,7 @@ public class GameDataLoaderTests
     public void MissingDirectory_IsReported()
     {
         DataLoadResult result = GameDataLoader.LoadFromDirectory(Path.Combine(Path.GetTempPath(), "zuzu-no-existe"));
-        Assert.Equal(4, result.Errors.Count);
+        Assert.Equal(5, result.Errors.Count);
     }
 
     [Fact]
@@ -142,6 +142,41 @@ public class GameDataLoaderTests
         Assert.Contains(result.Errors, e => e.Contains("b no tiene efectos"));
         Assert.Contains(result.Errors, e => e.Contains("c tiene una fecha fija"));
         Assert.Contains(result.Errors, e => e.Contains("desmedido"));
+    }
+
+    [Fact]
+    public void RealTaxes_Load()
+    {
+        var taxes = TestData.Real.Taxes;
+        Assert.Equal(11, taxes.Monotributo.Categories.Count);
+        Assert.Equal("K", taxes.Monotributo.Categories[^1].Id);
+        Assert.Equal(0.105m, taxes.Iva.For("agro"));
+        Assert.Equal(0.21m, taxes.Iva.For("mineria"));
+        Assert.Equal("agro", taxes.ActivityFor(TestData.Real.FindCommodity("leche"), -6));
+        Assert.Equal("pesca", taxes.ActivityFor(null, -4));
+        Assert.Equal("otros", taxes.ActivityFor(null, -999));
+        Assert.Equal("ManorHouse", taxes.PaymentDesk.Location);
+    }
+
+    [Fact]
+    public void InvalidTaxes_AreReported()
+    {
+        const string taxes = """
+            {
+              "dueDay": 30,
+              "iva": { "default": 1.5 },
+              "monotributo": { "categories": [ { "id": "A", "annualCap": 100, "fee": 1 }, { "id": "B", "annualCap": 50, "fee": 2 } ] },
+              "ganancias": { "brackets": [ { "upTo": 1000, "rate": 0.1 } ], "advances": 4 }
+            }
+            """;
+
+        DataLoadResult result = GameDataLoader.LoadFromJson(Accounts, Commodities, Difficulties, "[]", taxes);
+        Assert.False(result.Success);
+        Assert.Contains(result.Errors, e => e.Contains("dueDay"));
+        Assert.Contains(result.Errors, e => e.Contains("iva.default"));
+        Assert.Contains(result.Errors, e => e.Contains("crecientes (B)"));
+        Assert.Contains(result.Errors, e => e.Contains("upTo: null"));
+        Assert.Contains(result.Errors, e => e.Contains("advances"));
     }
 
     [Fact]

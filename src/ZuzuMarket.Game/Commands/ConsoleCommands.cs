@@ -9,9 +9,11 @@ using ZuzuMarket.Core.Ledger;
 using ZuzuMarket.Core.Macro;
 using ZuzuMarket.Core.Random;
 using ZuzuMarket.Core.Simulation;
+using ZuzuMarket.Core.Taxation;
 using ZuzuMarket.Core.Time;
 using ZuzuMarket.Game.Bridges;
 using ZuzuMarket.Game.Content;
+using Season = ZuzuMarket.Core.Time.Season;
 
 namespace ZuzuMarket.Game.Commands;
 
@@ -24,10 +26,14 @@ internal sealed class ConsoleCommands
     private readonly Func<EconomySimulation?> _getSimulation;
     private readonly Action _reset;
     private readonly NewsService _news;
+    private readonly Municipalidad _municipalidad;
+    private readonly TaxMail _taxMail;
 
-    public ConsoleCommands(IModHelper helper, IMonitor monitor, ModConfig config, Func<EconomySimulation?> getSimulation, Action reset, NewsService news)
+    public ConsoleCommands(IModHelper helper, IMonitor monitor, ModConfig config, Func<EconomySimulation?> getSimulation, Action reset, NewsService news, Municipalidad municipalidad, TaxMail taxMail)
     {
         _news = news;
+        _municipalidad = municipalidad;
+        _taxMail = taxMail;
         _helper = helper;
         _monitor = monitor;
         _config = config;
@@ -48,6 +54,11 @@ internal sealed class ConsoleCommands
         _helper.ConsoleCommands.Add("zuzu_inflation", I18n.Get("cmd.inflation.help"), WithSimulation(InflationCmd));
         _helper.ConsoleCommands.Add("zuzu_events", I18n.Get("cmd.events.help"), WithSimulation(EventsCmd));
         _helper.ConsoleCommands.Add("zuzu_event", I18n.Get("cmd.event.help"), WithSimulation(ForceEvent));
+        _helper.ConsoleCommands.Add("zuzu_taxes", I18n.Get("cmd.taxes.help"), WithSimulation(TaxesCmd));
+        _helper.ConsoleCommands.Add("zuzu_results", I18n.Get("cmd.results.help"), WithSimulation(Results));
+        _helper.ConsoleCommands.Add("zuzu_here", I18n.Get("cmd.here.help"), WithSimulation(Here));
+        _helper.ConsoleCommands.Add("zuzu_pay", I18n.Get("cmd.pay.help"), WithSimulation(PayCmd));
+        _helper.ConsoleCommands.Add("zuzu_regime", I18n.Get("cmd.regime.help"), WithSimulation(RegimeCmd));
     }
 
     private Action<string, string[]> WithSimulation(Action<EconomySimulation, string[]> action) => (_, args) =>
@@ -100,7 +111,7 @@ internal sealed class ConsoleCommands
         sb.AppendLine(I18n.Get("cmd.ledger.title", new { count = entries.Count }));
         foreach (JournalEntry entry in entries.Reverse())
         {
-            sb.AppendLine($"#{entry.Id} · {GameDateBridge.Format(I18n, entry.Date)} · {entry.EntityId} · [{entry.Source}] {entry.Description}");
+            sb.AppendLine($"#{entry.Id} · {GameDateBridge.Format(I18n, entry.Date)} · {entry.EntityId} · [{entry.Source}] {Describe(entry)}");
             foreach (JournalLine line in entry.Lines)
             {
                 string name = sim.Ledger.Chart.Get(line.AccountCode).Name;
@@ -311,6 +322,164 @@ internal sealed class ConsoleCommands
 
         _news.Announce(e);
         _monitor.Log(I18n.Get("cmd.event.done", new { id = e.Id }), LogLevel.Info);
+    }
+
+    private void TaxesCmd(EconomySimulation sim, string[] args)
+    {
+        TaxEngine taxes = sim.Taxes;
+        TaxState s = taxes.State;
+        var sb = new StringBuilder();
+        sb.AppendLine(I18n.Get("cmd.taxes.title"));
+        if (!taxes.Started)
+        {
+            _monitor.Log(I18n.Get("cmd.taxes.not-started"), LogLevel.Info);
+            return;
+        }
+
+        sb.AppendLine(I18n.Get("cmd.taxes.regime", new
+        {
+            regime = TaxText.Regime(I18n, s.Regime),
+            category = s.Regime == TaxRegime.Monotributo ? s.Category : "-",
+            since = s.RegisteredOn is { } registered ? GameDateBridge.Format(I18n, registered) : "-",
+        }));
+        decimal annual = s.RevenueHistory.Skip(Math.Max(0, s.RevenueHistory.Count - 4)).Sum(r => r.NetSales);
+        sb.AppendLine(I18n.Get("cmd.taxes.revenue", new
+        {
+            period = Formatting.Gold(I18n, (double)s.Current.NetSales),
+            annual = Formatting.Gold(I18n, (double)annual),
+            purchases = Formatting.Gold(I18n, (double)s.Current.NetPurchases),
+        }));
+        if (s.Regime == TaxRegime.ResponsableInscripto)
+        {
+            sb.AppendLine(I18n.Get("cmd.taxes.iva", new
+            {
+                debit = Money(sim.Ledger.GetBalance(LedgerEntities.Jugador, SystemAccounts.IvaDebitoFiscal)),
+                credit = Money(sim.Ledger.GetBalance(LedgerEntities.Jugador, SystemAccounts.IvaCreditoFiscal)),
+            }));
+        }
+
+        List<TaxObligation> unpaid = taxes.Unpaid.OrderBy(o => o.DueDate).ThenBy(o => o.Id).ToList();
+        sb.AppendLine(I18n.Get("cmd.taxes.unpaid", new { count = unpaid.Count, total = Formatting.Gold(I18n, unpaid.Sum(o => o.Total)) }));
+        foreach (TaxObligation o in unpaid)
+        {
+            sb.AppendLine($"  #{o.Id} [{TaxText.Jurisdiction(I18n, o.Jurisdiction)}] {TaxText.Line(I18n, o)} · {TaxText.Status(I18n, o.Status)}");
+        }
+
+        int recentPaid = 5;
+        List<TaxObligation> paid = s.Obligations.Where(o => o.IsPaid).Skip(Math.Max(0, s.Obligations.Count(o => o.IsPaid) - recentPaid)).ToList();
+        if (paid.Count > 0)
+        {
+            sb.AppendLine(I18n.Get("cmd.taxes.paid"));
+            foreach (TaxObligation o in paid)
+            {
+                sb.AppendLine($"  #{o.Id} {TaxText.Tax(I18n, o.Kind)} {GameDateBridge.Format(I18n, o.Period)} — {Formatting.Gold(I18n, o.PaidAmount)} ({GameDateBridge.Format(I18n, o.PaidOn!.Value)})");
+            }
+        }
+
+        sb.Append(I18n.Get("cmd.taxes.footer", new { autodebit = _config.AutoDebit ? I18n.Get("common.yes") : I18n.Get("common.no") }));
+        _monitor.Log(sb.ToString(), LogLevel.Info);
+    }
+
+    private void Results(EconomySimulation sim, string[] args)
+    {
+        IReadOnlyList<TrialBalanceRow> rows = sim.Ledger.GetTrialBalance(LedgerEntities.Jugador);
+        var income = rows.Where(r => r.Account.Type == AccountType.Ingreso).ToList();
+        var expenses = rows.Where(r => r.Account.Type == AccountType.Egreso).ToList();
+        var sb = new StringBuilder();
+        sb.AppendLine(I18n.Get("cmd.results.title", new { since = GameDateBridge.Format(I18n, sim.CreatedOn) }));
+        sb.AppendLine(I18n.Get("cmd.results.income"));
+        foreach (TrialBalanceRow r in income)
+        {
+            sb.AppendLine($"  {r.Account.Name,-44} {Money(r.Balance),14}");
+        }
+
+        sb.AppendLine(I18n.Get("cmd.results.expenses"));
+        foreach (TrialBalanceRow r in expenses)
+        {
+            sb.AppendLine($"  {r.Account.Name,-44} {Money(-r.Balance),14}");
+        }
+
+        decimal result = income.Sum(r => r.Balance) - expenses.Sum(r => r.Balance);
+        sb.Append(I18n.Get("cmd.results.total", new { result = Money(result) }));
+        _monitor.Log(sb.ToString(), LogLevel.Info);
+    }
+
+    private void Here(EconomySimulation sim, string[] args)
+    {
+        var tile = Game1.player.Tile;
+        var facing = Game1.player.GetGrabTile();
+        _monitor.Log(I18n.Get("cmd.here.result", new
+        {
+            location = Game1.currentLocation?.NameOrUniqueName ?? "-",
+            x = (int)tile.X,
+            y = (int)tile.Y,
+            fx = (int)facing.X,
+            fy = (int)facing.Y,
+        }), LogLevel.Info);
+    }
+
+    private void PayCmd(EconomySimulation sim, string[] args)
+    {
+        if (!_config.DebugMode)
+        {
+            _monitor.Log(I18n.Get("cmd.debug-only", new { command = "zuzu_pay" }), LogLevel.Warn);
+            return;
+        }
+
+        List<TaxObligation> unpaid = sim.Taxes.Unpaid.OrderBy(o => o.DueDate).ThenBy(o => o.Id).ToList();
+        IEnumerable<TaxObligation> selected = args.Length > 0 && long.TryParse(args[0], out long id)
+            ? unpaid.Where(o => o.Id == id)
+            : unpaid;
+        _municipalidad.Pay(sim, selected, automatic: false);
+        _monitor.Log(I18n.Get("cmd.pay.done"), LogLevel.Info);
+    }
+
+    private void RegimeCmd(EconomySimulation sim, string[] args)
+    {
+        if (!_config.DebugMode)
+        {
+            _monitor.Log(I18n.Get("cmd.debug-only", new { command = "zuzu_regime" }), LogLevel.Warn);
+            return;
+        }
+
+        TaxRegime? regime = args.Length == 0 ? null : args[0].ToLowerInvariant() switch
+        {
+            "ri" => TaxRegime.ResponsableInscripto,
+            "mono" => TaxRegime.Monotributo,
+            _ => null,
+        };
+        if (regime is null)
+        {
+            _monitor.Log(I18n.Get("cmd.regime.usage"), LogLevel.Info);
+            return;
+        }
+
+        sim.Taxes.SetRegime(regime.Value, sim.CurrentDate);
+        _monitor.Log(I18n.Get("cmd.regime.done", new { regime = TaxText.Regime(I18n, regime.Value) }), LogLevel.Info);
+    }
+
+    /// <summary>Descripción del asiento en el idioma actual (si tiene clave de traducción).</summary>
+    private string Describe(JournalEntry entry)
+    {
+        if (entry.DescriptionKey is null)
+        {
+            return entry.Description;
+        }
+
+        var tokens = new Dictionary<string, string>();
+        foreach (var (key, value) in entry.DescriptionArgs ?? new Dictionary<string, string>())
+        {
+            tokens[key] = key switch
+            {
+                "tax" when Enum.TryParse(value, out TaxKind kind) => TaxText.Tax(I18n, kind),
+                "season" when Enum.TryParse(value, out Season season) => GameDateBridge.SeasonName(I18n, season),
+                "activity" => I18n.Get($"activity.{value}").HasValue() ? I18n.Get($"activity.{value}") : value,
+                _ => value,
+            };
+        }
+
+        Translation text = I18n.Get(entry.DescriptionKey, tokens);
+        return text.HasValue() ? text : entry.Description;
     }
 
     /// <summary>Precio de venta vanilla del primer objeto del commodity (calidad normal, sin profesiones).</summary>

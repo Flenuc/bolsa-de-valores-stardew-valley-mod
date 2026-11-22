@@ -1,4 +1,5 @@
 using ZuzuMarket.Core.Ledger;
+using ZuzuMarket.Core.Taxation;
 using ZuzuMarket.Core.Time;
 
 namespace ZuzuMarket.Core.Data;
@@ -236,8 +237,10 @@ public sealed class GameData
         ChartOfAccounts chart,
         IReadOnlyList<CommodityDefinition> commodities,
         IReadOnlyList<DifficultyDefinition> difficulties,
-        IReadOnlyList<EventDefinition>? events = null)
+        IReadOnlyList<EventDefinition>? events = null,
+        TaxRules? taxes = null)
     {
+        Taxes = taxes ?? new TaxRules();
         Chart = chart;
         Commodities = commodities;
         Difficulties = difficulties;
@@ -253,6 +256,8 @@ public sealed class GameData
     }
 
     public IReadOnlyList<EventDefinition> Events { get; }
+
+    public TaxRules Taxes { get; }
 
     public EventDefinition? FindEvent(string id) =>
         Events.FirstOrDefault(e => string.Equals(e.Id, id, StringComparison.OrdinalIgnoreCase));

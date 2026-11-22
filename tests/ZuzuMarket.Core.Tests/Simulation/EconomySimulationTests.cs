@@ -112,8 +112,9 @@ public class EconomySimulationTests
             original.Ledger.Entries.Select(e => (e.Id, e.Description, e.Date, e.TotalDebit)),
             loaded.Ledger.Entries.Select(e => (e.Id, e.Description, e.Date, e.TotalDebit)));
 
+        long lastId = loaded.Ledger.Entries[^1].Id;
         JournalEntry? next = loaded.ReconcileCash(1000, "Compra");
-        Assert.Equal(3, next!.Id);
+        Assert.Equal(lastId + 1, next!.Id);
         Assert.Equal(original.Random("x").NextUInt64(), loaded.Random("x").NextUInt64());
     }
 
@@ -217,8 +218,14 @@ public class EconomySimulationTests
         Assert.Equal(0.95, sim.Market.Get("chirivia").Multiplier, 10);
         Assert.Empty(sim.Events.Active);
 
-        sim.OnDayStarted(new EconomicDate(1, Season.Spring, 3));
+        Assert.False(sim.Taxes.Started);
+        DayStartedInfo info = sim.OnDayStarted(new EconomicDate(1, Season.Spring, 3));
         Assert.Single(sim.Market.Get("chirivia").History);
+
+        // Esquema 2 → 3: el primer día simulado se da de alta como monotributista, sin período de gracia.
+        Assert.True(sim.Taxes.Started);
+        Assert.Contains(info.TaxNotices, n => n.Kind == ZuzuMarket.Core.Taxation.TaxNoticeKind.Registered);
+        Assert.Equal(2, sim.Taxes.State.Obligations.Count);
     }
 
     private sealed class RecordingLog : ISimulationLog

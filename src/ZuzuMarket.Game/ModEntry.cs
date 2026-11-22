@@ -23,6 +23,9 @@ internal sealed class ModEntry : Mod
     private SaveDataStore? _store;
     private SmapiSimulationLog? _log;
     private NewsService? _news;
+    private TaxMail? _taxMail;
+    private MoneyTracker? _money;
+    private Municipalidad? _municipalidad;
     private EconomySimulation? _simulation;
 
     /// <summary>Si el estado guardado estaba dañado, no se guarda nada encima para no perderlo.</summary>
@@ -70,11 +73,15 @@ internal sealed class ModEntry : Mod
                 commodities = _data.Commodities.Count,
                 difficulties = _data.Difficulties.Count,
                 events = _data.Events.Count,
+                categories = _data.Taxes.Monotributo.Categories.Count,
             }),
             LogLevel.Debug);
 
         _store = new SaveDataStore(helper.Data);
         _news = new NewsService(helper, ModManifest, _config, _data, () => Simulation);
+        _taxMail = new TaxMail(helper, ModManifest, _config, () => Simulation);
+        _money = new MoneyTracker(() => Simulation);
+        _municipalidad = new Municipalidad(helper, Monitor, () => Simulation, _taxMail, _money);
 
         var harmony = new Harmony(ModManifest.UniqueID);
         SellPricePatch.Apply(harmony, Monitor);
@@ -86,8 +93,13 @@ internal sealed class ModEntry : Mod
         helper.Events.GameLoop.ReturnedToTitle += OnReturnedToTitle;
         helper.Events.Display.MenuChanged += ShopInflation.OnMenuChanged;
         helper.Events.Content.AssetRequested += _news.OnAssetRequested;
+        helper.Events.Content.AssetRequested += _taxMail.OnAssetRequested;
+        helper.Events.Content.AssetRequested += BuildingInflation.OnAssetRequested;
+        helper.Events.GameLoop.UpdateTicked += _money.OnUpdateTicked;
+        helper.Events.Player.InventoryChanged += _money.OnInventoryChanged;
+        helper.Events.Input.ButtonPressed += _municipalidad.OnButtonPressed;
 
-        new ConsoleCommands(helper, Monitor, _config, () => Simulation, ResetSimulation, _news).Register();
+        new ConsoleCommands(helper, Monitor, _config, () => Simulation, ResetSimulation, _news, _municipalidad, _taxMail).Register();
     }
 
     private void OnSaveLoaded(object? sender, SaveLoadedEventArgs e)
@@ -135,9 +147,19 @@ internal sealed class ModEntry : Mod
             return;
         }
 
-        DayStartedInfo info = Simulation.OnDayStarted(GameDateBridge.CurrentDate(), WeatherBridge.Today());
+        DayStartedInfo info = Simulation.OnDayStarted(GameDateBridge.CurrentDate(), WeatherBridge.Today(), FarmBridge.Snapshot());
         MoneyBridge.Reconcile(Simulation, Helper.Translation.Get("entry.reconcile-day-start"));
+
+        // El texto de las cartas y el costo de las construcciones dependen del estado del día.
+        Helper.GameContent.InvalidateCache(BuildingInflation.Asset);
         _news!.Publish(info);
+        _taxMail!.Publish(info.TaxNotices);
+        if (_config.AutoDebit)
+        {
+            _municipalidad!.AutoDebit(Simulation);
+        }
+
+        _money!.Reset();
 
         if (info.IsNewFiscalPeriod)
         {
@@ -152,10 +174,11 @@ internal sealed class ModEntry : Mod
             return;
         }
 
-        int units = ShippingBridge.RecordShipments(Simulation);
-        if (units > 0)
+        var shipped = ShippingBridge.CollectShipments();
+        if (shipped.Count > 0)
         {
-            Monitor.Log(Helper.Translation.Get("log.shipments", new { units }), LogLevel.Debug);
+            Simulation.RecordShipmentSales(shipped);
+            Monitor.Log(Helper.Translation.Get("log.shipments", new { units = shipped.Sum(s => s.Units), gross = shipped.Sum(s => s.Gross) }), LogLevel.Debug);
         }
 
         Simulation.OnDayEnding();
@@ -170,6 +193,7 @@ internal sealed class ModEntry : Mod
 
         MoneyBridge.Reconcile(Simulation, Helper.Translation.Get("entry.reconcile-saving"));
         _store!.Save(Simulation.Snapshot());
+        _money?.Reset();
     }
 
     private void OnReturnedToTitle(object? sender, ReturnedToTitleEventArgs e)

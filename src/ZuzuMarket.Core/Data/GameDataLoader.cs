@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ZuzuMarket.Core.Ledger;
+using ZuzuMarket.Core.Taxation;
 
 namespace ZuzuMarket.Core.Data;
 
@@ -27,6 +28,7 @@ public static class GameDataLoader
     public const string CommoditiesFile = "commodities.json";
     public const string DifficultiesFile = "difficulties.json";
     public const string EventsFile = "events.json";
+    public const string TaxesFile = "taxes.json";
 
     public static IReadOnlyList<string> RequiredDifficulties { get; } = new[] { "casual", "realista", "argentina" };
 
@@ -57,22 +59,24 @@ public static class GameDataLoader
         string? commodities = Read(CommoditiesFile);
         string? difficulties = Read(DifficultiesFile);
         string? events = Read(EventsFile);
-        if (accounts is null || commodities is null || difficulties is null || events is null)
+        string? taxes = Read(TaxesFile);
+        if (accounts is null || commodities is null || difficulties is null || events is null || taxes is null)
         {
             return new DataLoadResult(null, errors);
         }
 
-        return LoadFromJson(accounts, commodities, difficulties, events);
+        return LoadFromJson(accounts, commodities, difficulties, events, taxes);
     }
 
-    public static DataLoadResult LoadFromJson(string accountsJson, string commoditiesJson, string difficultiesJson, string eventsJson = "[]")
+    public static DataLoadResult LoadFromJson(string accountsJson, string commoditiesJson, string difficultiesJson, string eventsJson = "[]", string? taxesJson = null)
     {
         var errors = new List<string>();
         List<AccountDefinition>? accounts = Deserialize<List<AccountDefinition>>(accountsJson, AccountsFile, errors);
         List<CommodityDefinition>? commodities = Deserialize<List<CommodityDefinition>>(commoditiesJson, CommoditiesFile, errors);
         List<DifficultyDefinition>? difficulties = Deserialize<List<DifficultyDefinition>>(difficultiesJson, DifficultiesFile, errors);
         List<EventDefinition>? events = Deserialize<List<EventDefinition>>(eventsJson, EventsFile, errors);
-        if (accounts is null || commodities is null || difficulties is null || events is null)
+        TaxRules? taxes = taxesJson is null ? new TaxRules() : Deserialize<TaxRules>(taxesJson, TaxesFile, errors);
+        if (accounts is null || commodities is null || difficulties is null || events is null || taxes is null)
         {
             return new DataLoadResult(null, errors);
         }
@@ -81,13 +85,18 @@ public static class GameDataLoader
         ValidateCommodities(commodities, errors);
         ValidateDifficulties(difficulties, errors);
         ValidateEvents(events, commodities, errors);
+        if (taxesJson is not null)
+        {
+            ValidateTaxes(taxes, errors);
+        }
+
         if (errors.Count > 0)
         {
             return new DataLoadResult(null, errors);
         }
 
         var chart = new ChartOfAccounts(accounts.Select(a => new Account(a.Code, a.Name, a.Type)));
-        return new DataLoadResult(new GameData(chart, commodities, difficulties, events), errors);
+        return new DataLoadResult(new GameData(chart, commodities, difficulties, events, taxes), errors);
     }
 
     private static T? Deserialize<T>(string json, string file, List<string> errors)
@@ -279,6 +288,78 @@ public static class GameDataLoader
                     errors.Add($"{EventsFile}: {e.Id} tiene un priceImpact desmedido ({effect.PriceImpact}).");
                 }
             }
+        }
+    }
+
+    private static void ValidateTaxes(TaxRules t, List<string> errors)
+    {
+        void Rate(string name, decimal rate)
+        {
+            if (rate is < 0 or > 1)
+            {
+                errors.Add($"{TaxesFile}: la alícuota {name} está fuera de [0, 1].");
+            }
+        }
+
+        if (t.DueDay is < 1 or > Time.EconomicDate.DaysPerSeason || t.GananciasDueDay is < 1 or > Time.EconomicDate.DaysPerSeason)
+        {
+            errors.Add($"{TaxesFile}: dueDay y gananciasDueDay deben estar entre 1 y 28.");
+        }
+
+        Rate("iva.default", t.Iva.Default);
+        Rate("iva.purchaseRate", t.Iva.PurchaseRate);
+        foreach (var kv in t.Iva.Rates)
+        {
+            Rate($"iva.{kv.Key}", kv.Value);
+        }
+
+        Rate("ingresosBrutos.default", t.IngresosBrutos.Default);
+        foreach (var kv in t.IngresosBrutos.Rates)
+        {
+            Rate($"ingresosBrutos.{kv.Key}", kv.Value);
+        }
+
+        Rate("seguridadHigiene.rate", t.SeguridadHigiene.Rate);
+        Rate("mora.dailyInterest", t.Mora.DailyInterest);
+        Rate("mora.fineRate", t.Mora.FineRate);
+
+        List<MonotributoCategory> categories = t.Monotributo.Categories;
+        if (categories.Count == 0)
+        {
+            errors.Add($"{TaxesFile}: el Monotributo necesita al menos una categoría.");
+        }
+
+        for (int i = 0; i < categories.Count; i++)
+        {
+            if (string.IsNullOrWhiteSpace(categories[i].Id) || categories[i].AnnualCap <= 0 || categories[i].Fee < 0)
+            {
+                errors.Add($"{TaxesFile}: la categoría {i + 1} del Monotributo necesita id, annualCap > 0 y fee >= 0.");
+            }
+
+            if (i > 0 && categories[i].AnnualCap <= categories[i - 1].AnnualCap)
+            {
+                errors.Add($"{TaxesFile}: los topes del Monotributo deben ser crecientes ({categories[i].Id}).");
+            }
+        }
+
+        List<TaxBracket> brackets = t.Ganancias.Brackets;
+        if (brackets.Count == 0 || brackets[^1].UpTo is not null)
+        {
+            errors.Add($"{TaxesFile}: la escala de Ganancias debe terminar con un tramo sin límite (upTo: null).");
+        }
+
+        for (int i = 0; i < brackets.Count; i++)
+        {
+            Rate($"ganancias.brackets[{i}]", brackets[i].Rate);
+            if (i > 0 && brackets[i].UpTo is decimal upper && brackets[i - 1].UpTo is decimal lower && upper <= lower)
+            {
+                errors.Add($"{TaxesFile}: los tramos de Ganancias deben ser crecientes.");
+            }
+        }
+
+        if (t.Ganancias.Advances < 0 || t.Ganancias.Advances > 3)
+        {
+            errors.Add($"{TaxesFile}: ganancias.advances debe estar entre 0 y 3 (verano, otoño e invierno).");
         }
     }
 

@@ -84,14 +84,14 @@ public sealed class GeneralLedger
     /// Registra un asiento. Los importes se redondean a 2 decimales y luego se valida que esté balanceado.
     /// </summary>
     /// <exception cref="LedgerException">Si el asiento es inválido. En ese caso no se registra nada.</exception>
-    public JournalEntry Post(string entityId, EconomicDate date, string description, string source, params JournalLine[] lines)
+    public JournalEntry Post(string entityId, EconomicDate date, EntryText description, string source, params JournalLine[] lines)
     {
         if (!_entities.Contains(entityId))
         {
             throw new LedgerException($"Entidad contable desconocida: {entityId}.");
         }
 
-        if (string.IsNullOrWhiteSpace(description))
+        if (description is null || string.IsNullOrWhiteSpace(description.Fallback))
         {
             throw new LedgerException("El asiento necesita una descripción.");
         }
@@ -131,7 +131,7 @@ public sealed class GeneralLedger
             throw new LedgerException($"Asiento desbalanceado: Debe {totalDebit} ≠ Haber {totalCredit}.");
         }
 
-        var entry = new JournalEntry(_state.NextEntryId++, entityId, date, description, source, rounded);
+        var entry = new JournalEntry(_state.NextEntryId++, entityId, date, description.Fallback, source, rounded, description.Key, description.Args);
         _state.Entries.Add(entry);
         foreach (JournalLine line in rounded)
         {

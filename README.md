@@ -6,9 +6,9 @@ con cauciones, letras, bonos, obligaciones negociables, acciones, futuros con en
 
 📄 Ver el [documento de diseño](docs/DISENO.md).
 
-**Estado:** Fase 1 — los 15 commodities tienen precio de mercado (oferta por tus ventas, estación, eventos e
-inflación) que reemplaza el precio de venta vanilla; las tiendas suben con la inflación; los eventos llegan como
-noticias y cartas. Requiere Stardew Valley 1.6 y SMAPI 4.x.
+**Estado:** Fase 2 — precios de mercado con oferta, estación, eventos e inflación (Fase 1), y ahora la granja lleva
+contabilidad real y tributa: Monotributo (o Responsable Inscripto), IVA, Ingresos Brutos, Seguridad e Higiene, ABL y
+Ganancias, con boletas por correo, débito automático, pago en la Municipalidad y mora. Requiere Stardew Valley 1.6 y SMAPI 4.x.
 
 ## Compilar
 
@@ -29,7 +29,8 @@ Si el juego no está en la ruta estándar de Steam/GOG, agregá `<GamePath>` en 
 |---|---|---|
 | `Difficulty` | `realista` | `casual`, `realista` o `argentina`. Se aplica a partidas nuevas; una partida ya iniciada conserva la suya. |
 | `NewsHud` | `true` | Muestra las noticias económicas como aviso en pantalla. |
-| `NewsLetters` | `true` | Manda cartas del Diario de Zuzu y del INDEF al buzón. |
+| `NewsLetters` | `true` | Manda cartas del Diario de Zuzu, del INDEF y del fisco al buzón. |
+| `AutoDebit` | `true` | Paga solo las boletas el día del vencimiento (o las vencidas) si alcanza el oro. |
 | `DebugMode` | `false` | Habilita comandos de depuración como `zuzu_reset` y `zuzu_event`. |
 
 ## Comandos de consola (SMAPI)
@@ -43,5 +44,10 @@ Si el juego no está en la ruta estándar de Steam/GOG, agregá `<GamePath>` en 
 | `zuzu_inflation` | IPC-F, inflación mensual vigente e historial publicado por el INDEF |
 | `zuzu_events` | Eventos en curso y últimas noticias |
 | `zuzu_event <id>` | (solo `DebugMode`) hace empezar un evento hoy |
+| `zuzu_taxes` | Régimen, categoría, facturación y boletas pendientes y pagadas |
+| `zuzu_results` | Estado de resultados acumulado |
+| `zuzu_here` | Ubicación y tile actual (para ubicar el escritorio de pago) |
+| `zuzu_pay [id]` | (solo `DebugMode`) paga boletas sin ir a la Municipalidad |
+| `zuzu_regime ri\|mono` | (solo `DebugMode`) cambia el régimen impositivo |
 | `zuzu_rng <stream> [n]` | Valores del generador determinista para ese stream y día |
 | `zuzu_reset confirm` | (solo `DebugMode`) reinicia la economía de la partida |

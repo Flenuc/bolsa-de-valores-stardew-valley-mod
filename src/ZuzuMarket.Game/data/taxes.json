@@ -1,0 +1,99 @@
+// Reglas tributarias (§9 de docs/DISENO.md). Valores de referencia del nivel Realista:
+// las alícuotas y los montos se multiplican por "taxBurden" de la dificultad, y los montos fijos
+// (oro del año 1) se indexan además por el IPC al emitirse cada boleta.
+{
+  "dueDay": 14,
+  "gananciasDueDay": 21,
+
+  // Actividad de cada venta: por sector del commodity o por categoría del objeto (Object.Category).
+  "activityBySector": {
+    "Granos": "agro", "Hortalizas": "agro", "Frutas": "agro", "Animal": "agro",
+    "Mineria": "mineria", "Pesca": "pesca", "Artesanal": "artesanal"
+  },
+  "activityByCategory": {
+    "-75": "agro", "-79": "agro", "-80": "agro", "-81": "agro", "-74": "agro",
+    "-5": "agro", "-6": "agro", "-14": "agro", "-18": "agro",
+    "-4": "pesca", "-23": "pesca", "-21": "pesca",
+    "-2": "mineria", "-12": "mineria", "-15": "mineria", "-16": "mineria",
+    "-26": "artesanal", "-27": "artesanal", "-7": "artesanal", "-25": "artesanal"
+  },
+  "defaultActivity": "otros",
+
+  // IVA (solo Responsable Inscripto). Los precios del juego se consideran con IVA incluido.
+  "iva": {
+    "rates": { "agro": 0.105 },
+    "default": 0.21,
+    "purchaseRate": 0.21
+  },
+
+  // Ingresos Brutos (provincial) sobre ventas netas del período.
+  "ingresosBrutos": {
+    "rates": { "agro": 0.01, "pesca": 0.015, "mineria": 0.03, "artesanal": 0.035 },
+    "default": 0.03
+  },
+
+  // Tasa de Seguridad e Higiene (municipal) sobre ventas netas, con mínimo por período.
+  "seguridadHigiene": { "rate": 0.006, "minimum": 100 },
+
+  // ABL / tasa de servicios (municipal) por período: casa según nivel + cada edificio.
+  "abl": {
+    "houseByLevel": [150, 250, 400, 550],
+    "buildings": {
+      "Farmhouse": 0, "Shipping Bin": 0, "Pet Bowl": 0, "Cabin": 0,
+      "Coop": 50, "Big Coop": 80, "Deluxe Coop": 120,
+      "Barn": 70, "Big Barn": 110, "Deluxe Barn": 160,
+      "Shed": 40, "Big Shed": 80, "Silo": 15, "Well": 10, "Stable": 40,
+      "Fish Pond": 30, "Slime Hutch": 80, "Mill": 40, "Greenhouse": 150, "Junimo Hut": 20
+    },
+    "defaultBuilding": 30
+  },
+
+  // Monotributo: tope de facturación anual (últimas 4 estaciones) y cuota por estación.
+  "monotributo": {
+    "categories": [
+      { "id": "A", "annualCap": 15000,   "fee": 150 },
+      { "id": "B", "annualCap": 30000,   "fee": 280 },
+      { "id": "C", "annualCap": 60000,   "fee": 520 },
+      { "id": "D", "annualCap": 100000,  "fee": 850 },
+      { "id": "E", "annualCap": 150000,  "fee": 1250 },
+      { "id": "F", "annualCap": 250000,  "fee": 2000 },
+      { "id": "G", "annualCap": 400000,  "fee": 3200 },
+      { "id": "H", "annualCap": 600000,  "fee": 4800 },
+      { "id": "I", "annualCap": 900000,  "fee": 7000 },
+      { "id": "J", "annualCap": 1300000, "fee": 10000 },
+      { "id": "K", "annualCap": 2000000, "fee": 15000 }
+    ],
+    "recategorizationAfter": ["Summer", "Winter"]
+  },
+
+  // Ganancias de personas humanas (solo Responsable Inscripto). Declaración anual en primavera;
+  // anticipos en verano, otoño e invierno del año siguiente.
+  "ganancias": {
+    "nonTaxableMinimum": 15000,
+    "brackets": [
+      { "upTo": 20000,   "rate": 0.05 },
+      { "upTo": 50000,   "rate": 0.09 },
+      { "upTo": 100000,  "rate": 0.12 },
+      { "upTo": 200000,  "rate": 0.15 },
+      { "upTo": 400000,  "rate": 0.19 },
+      { "upTo": 800000,  "rate": 0.23 },
+      { "upTo": 1600000, "rate": 0.27 },
+      { "upTo": 3200000, "rate": 0.31 },
+      { "upTo": null,    "rate": 0.35 }
+    ],
+    "advances": 3,
+    "advanceFraction": 0.25
+  },
+
+  // Mora (los intereses se multiplican por "lateInterest" de la dificultad).
+  "mora": {
+    "dailyInterest": 0.001,
+    "intimationAfterDays": 7,
+    "intimationDeadlineDays": 7,
+    "fineRate": 0.10
+  },
+
+  // Dónde se pagan las boletas a mano: escritorio del intendente Lewis.
+  // Para ubicarlo en el juego: parate frente al escritorio y usá el comando zuzu_here.
+  "paymentDesk": { "location": "ManorHouse", "x": 16, "y": 4, "width": 3, "height": 2 }
+}

@@ -27,9 +27,28 @@ public static class SystemAccounts
     public const string EgresosNoClasificados = "5.9.01";
     public const string DiferenciasDeRedondeo = "5.9.02";
 
+    public const string DeudoresPorVentas = "1.1.06";
+    public const string IvaCreditoFiscal = "1.1.07";
+    public const string AnticiposGanancias = "1.1.08";
+    public const string IvaDebitoFiscal = "2.1.04";
+    public const string ImpuestosAPagarArf = "2.1.05";
+    public const string ImpuestosAPagarArpv = "2.1.06";
+    public const string TasasAPagarMunicipalidad = "2.1.07";
+    public const string Ventas = "4.1.01";
+    public const string ComprasEnTiendas = "5.2.02";
+    public const string Monotributo = "5.3.02";
+    public const string IngresosBrutos = "5.3.03";
+    public const string SeguridadHigiene = "5.3.04";
+    public const string Abl = "5.3.05";
+    public const string Ganancias = "5.3.06";
+    public const string InteresesYMultasFiscales = "5.4.02";
+
     public static IReadOnlyList<string> All { get; } = new[]
     {
         Caja, Capital, IngresosNoClasificados, EgresosNoClasificados, DiferenciasDeRedondeo,
+        DeudoresPorVentas, IvaCreditoFiscal, AnticiposGanancias, IvaDebitoFiscal, ImpuestosAPagarArf,
+        ImpuestosAPagarArpv, TasasAPagarMunicipalidad, Ventas, ComprasEnTiendas, Monotributo, IngresosBrutos,
+        SeguridadHigiene, Abl, Ganancias, InteresesYMultasFiscales,
     };
 }
 

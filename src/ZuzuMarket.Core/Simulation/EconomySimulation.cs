@@ -5,6 +5,7 @@ using ZuzuMarket.Core.Ledger;
 using ZuzuMarket.Core.Macro;
 using ZuzuMarket.Core.Random;
 using ZuzuMarket.Core.State;
+using ZuzuMarket.Core.Taxation;
 using ZuzuMarket.Core.Time;
 
 namespace ZuzuMarket.Core.Simulation;
@@ -38,11 +39,12 @@ public sealed record DayStartedInfo(
     bool IsNewFiscalYear,
     int DaysAdvanced,
     IReadOnlyList<EventDefinition> NewEvents,
-    IReadOnlyList<InflationRecord> PublishedInflation);
+    IReadOnlyList<InflationRecord> PublishedInflation,
+    IReadOnlyList<TaxNotice> TaxNotices);
 
 /// <summary>
 /// Orquestador: avanza el mundo económico un día por vez.
-/// Orden de cada día: período fiscal (inflación) → eventos → IPC → precios.
+/// Orden de cada día: período fiscal (inflación, declaraciones y boletas) → eventos → IPC → precios → mora.
 /// </summary>
 public sealed class EconomySimulation
 {
@@ -61,6 +63,7 @@ public sealed class EconomySimulation
         Inflation = new InflationModel(state.Inflation);
         Market = new CommodityMarket(data, state.Commodities);
         Events = new EventEngine(data, state.Events);
+        Taxes = new TaxEngine(data, state.Taxes, ledger, Difficulty);
 
         if (!Inflation.HasStarted)
         {
@@ -80,6 +83,8 @@ public sealed class EconomySimulation
     public CommodityMarket Market { get; }
 
     public EventEngine Events { get; }
+
+    public TaxEngine Taxes { get; }
 
     public ulong Seed => _state.Seed;
 
@@ -152,12 +157,14 @@ public sealed class EconomySimulation
     /// Se llama al empezar cada día del juego. Simula un paso por cada día transcurrido; los días salteados
     /// se simulan con clima soleado.
     /// </summary>
-    public DayStartedInfo OnDayStarted(EconomicDate date, Weather weather = Weather.Sun)
+    public DayStartedInfo OnDayStarted(EconomicDate date, Weather weather = Weather.Sun, FarmSnapshot? farm = null)
     {
+        farm ??= FarmSnapshot.Empty;
         EconomicDate previous = _state.CurrentDate;
         int daysAdvanced = previous.DaysUntil(date);
         var newEvents = new List<EventDefinition>();
         var published = new List<InflationRecord>();
+        var taxNotices = new List<TaxNotice>();
 
         if (daysAdvanced < 0)
         {
@@ -174,13 +181,19 @@ public sealed class EconomySimulation
             for (int i = 1; i <= daysAdvanced; i++)
             {
                 EconomicDate day = previous.AddDays(i);
-                StepDay(day, i == daysAdvanced ? weather : Weather.Sun, newEvents, published);
+                StepDay(day, i == daysAdvanced ? weather : Weather.Sun, farm, newEvents, published, taxNotices);
             }
+        }
+
+        if (!Taxes.Started)
+        {
+            // Primer día que se simula la partida (nueva o migrada): alta como monotributista, sin período de gracia.
+            taxNotices.AddRange(Taxes.Start(_state.CurrentDate, farm, (decimal)Inflation.Index));
         }
 
         bool newPeriod = daysAdvanced > 0 && date.FiscalPeriod != previous.FiscalPeriod;
         bool newYear = daysAdvanced > 0 && date.Year != previous.Year;
-        return new DayStartedInfo(date, date.IsBusinessDay, newPeriod, newYear, daysAdvanced, newEvents, published);
+        return new DayStartedInfo(date, date.IsBusinessDay, newPeriod, newYear, daysAdvanced, newEvents, published, taxNotices);
     }
 
     /// <summary>Se llama al terminar el día, antes de guardar.</summary>
@@ -189,8 +202,23 @@ public sealed class EconomySimulation
         // Fases siguientes: cierre de mercado, liquidaciones, devengamientos, impuestos, vencimientos.
     }
 
-    /// <summary>Registra unidades vendidas por el jugador (cajón de envíos). Impactan en el precio del día siguiente.</summary>
+    /// <summary>Registra unidades vendidas por el jugador como oferta (sin contabilizar). Impactan en el precio del día siguiente.</summary>
     public bool RecordShipment(string itemId, int units) => Market.RecordShipment(itemId, units);
+
+    /// <summary>
+    /// Ventas del cajón de envíos al terminar el día: suman oferta y se contabilizan como venta a cobrar
+    /// (el oro llega a la noche y se cobra al conciliar).
+    /// </summary>
+    public void RecordShipmentSales(IReadOnlyCollection<SoldItem> items) => RecordSales(items, SaleChannel.Shipping);
+
+    /// <summary>Ventas directas a una tienda: suman oferta y se cobran en el momento.</summary>
+    public void RecordShopSales(IReadOnlyCollection<SoldItem> items) => RecordSales(items, SaleChannel.Shop);
+
+    /// <summary>Compra en una tienda (o a Robin) por el importe pagado.</summary>
+    public JournalEntry? RecordPurchase(long gross) => Taxes.RecordPurchase(_state.CurrentDate, gross);
+
+    /// <summary>Paga una boleta contra la Caja. Devuelve el oro que el juego debe descontar, o null si no se pudo.</summary>
+    public long? PayObligation(long obligationId) => Taxes.Pay(obligationId, _state.CurrentDate);
 
     /// <summary>Hace empezar un evento hoy y recalcula los precios (comando de debug).</summary>
     public EventDefinition? ForceEvent(string eventId)
@@ -215,13 +243,30 @@ public sealed class EconomySimulation
     /// Compara el oro real del jugador con la cuenta Caja y asienta la diferencia como movimiento no clasificado.
     /// Devuelve el asiento, o <c>null</c> si no había diferencia.
     /// </summary>
-    public JournalEntry? ReconcileCash(long playerGold, string description)
+    /// <remarks>Primero cobra las ventas del cajón de envíos pendientes (Deudores por ventas).</remarks>
+    public JournalEntry? ReconcileCash(long playerGold, EntryText description)
     {
         decimal cash = Ledger.GetBalance(LedgerEntities.Jugador, SystemAccounts.Caja);
         decimal difference = playerGold - cash;
+        JournalEntry? last = null;
+
+        decimal receivable = Ledger.GetBalance(LedgerEntities.Jugador, SystemAccounts.DeudoresPorVentas);
+        if (difference > 0 && receivable > 0)
+        {
+            decimal collected = Math.Min(difference, receivable);
+            last = Ledger.Post(
+                LedgerEntities.Jugador,
+                _state.CurrentDate,
+                new EntryText("Cobro de ventas del cajón de envíos", "entry.receivable-collected"),
+                EntrySources.Cobro,
+                JournalLine.ToDebit(SystemAccounts.Caja, collected),
+                JournalLine.ToCredit(SystemAccounts.DeudoresPorVentas, collected));
+            difference -= collected;
+        }
+
         if (difference == 0)
         {
-            return null;
+            return last;
         }
 
         JournalLine[] lines = difference > 0
@@ -239,7 +284,17 @@ public sealed class EconomySimulation
         return Ledger.Post(LedgerEntities.Jugador, _state.CurrentDate, description, EntrySources.Conciliacion, lines);
     }
 
-    private void StepDay(EconomicDate day, Weather weather, List<EventDefinition> newEvents, List<InflationRecord> published)
+    private void RecordSales(IReadOnlyCollection<SoldItem> items, SaleChannel channel)
+    {
+        foreach (SoldItem item in items)
+        {
+            Market.RecordShipment(item.ItemId, item.Units);
+        }
+
+        Taxes.RecordSales(_state.CurrentDate, items, channel);
+    }
+
+    private void StepDay(EconomicDate day, Weather weather, FarmSnapshot farm, List<EventDefinition> newEvents, List<InflationRecord> published, List<TaxNotice> taxNotices)
     {
         _state.CurrentDate = day;
         DifficultyDefinition difficulty = Difficulty;
@@ -256,6 +311,11 @@ public sealed class EconomySimulation
             Inflation.StartPeriod(day.FiscalPeriod, difficulty, RandomStreams.For(_state.Seed, day, InflationStream));
         }
 
+        if (Taxes.Started)
+        {
+            taxNotices.AddRange(Taxes.OnPeriodStart(day, farm, (decimal)Inflation.Index));
+        }
+
         Events.Expire(day);
         foreach (EventDefinition e in Events.Roll(day, weather, difficulty, RandomStreams.For(_state.Seed, day, EventsStream)))
         {
@@ -268,6 +328,7 @@ public sealed class EconomySimulation
 
         Inflation.AdvanceDay();
         Market.Step(day, Inflation.Index, (double)difficulty.PriceVolatility, _state.Seed, c => Events.PriceImpact(c, day));
+        taxNotices.AddRange(Taxes.OnDay(day));
     }
 
     private void RecalculatePrices()

@@ -1,27 +1,28 @@
 using StardewValley;
-using ZuzuMarket.Core.Simulation;
-using SObject = StardewValley.Object;
+using ZuzuMarket.Core.Taxation;
 
 namespace ZuzuMarket.Game.Bridges;
 
 /// <summary>
-/// Lee el cajón de envíos al terminar el día y registra las unidades de commodities vendidas como oferta.
-/// (Las ventas directas a tiendas todavía no generan oferta: ver §17 del diseño.)
+/// Lee el cajón de envíos al terminar el día: cada objeto con su valor de venta (precio de mercado, calidad y
+/// profesiones incluidas), para sumarlo como oferta y contabilizarlo como venta a cobrar.
 /// </summary>
 internal static class ShippingBridge
 {
-    /// <summary>Devuelve la cantidad de unidades de commodities registradas.</summary>
-    public static int RecordShipments(EconomySimulation simulation)
+    public static List<SoldItem> CollectShipments()
     {
-        int units = 0;
+        var items = new List<SoldItem>();
         foreach (Item? item in Game1.getFarm().getShippingBin(Game1.player))
         {
-            if (item is SObject obj && obj.Stack > 0 && simulation.RecordShipment(obj.ItemId, obj.Stack))
+            if (item is null || item.Stack <= 0)
             {
-                units += obj.Stack;
+                continue;
             }
+
+            int gross = Utility.getSellToStorePriceOfItem(item);
+            items.Add(new SoldItem(item.ItemId, item.Category, item.Stack, gross));
         }
 
-        return units;
+        return items;
     }
 }

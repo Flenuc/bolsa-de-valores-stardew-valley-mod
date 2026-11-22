@@ -27,7 +27,20 @@ internal static class TestData
     public static GameData WithoutEvents()
     {
         GameData real = Load();
-        return new GameData(real.Chart, real.Commodities, real.Difficulties);
+        return new GameData(real.Chart, real.Commodities, real.Difficulties, null, real.Taxes);
+    }
+
+    /// <summary>Datos reales sin eventos y sin inflación (IPC = 1 siempre), para cuentas exactas de impuestos.</summary>
+    public static GameData WithoutInflation()
+    {
+        GameData data = WithoutEvents();
+        foreach (DifficultyDefinition d in data.Difficulties)
+        {
+            d.InflationMin = 0;
+            d.InflationMax = 0;
+        }
+
+        return data;
     }
 
     /// <summary>Datos reales sin eventos y sin ruido de precios.</summary>
@@ -45,15 +58,15 @@ internal static class TestData
     public static GameData WithEvents(params EventDefinition[] events)
     {
         GameData real = Load();
-        return new GameData(real.Chart, real.Commodities, real.Difficulties, events);
+        return new GameData(real.Chart, real.Commodities, real.Difficulties, events, real.Taxes);
     }
 
     /// <summary>Avanza la simulación día por día hasta la fecha indicada (inclusive).</summary>
-    public static void AdvanceTo(EconomySimulation sim, EconomicDate target, Weather weather = Weather.Sun)
+    public static void AdvanceTo(EconomySimulation sim, EconomicDate target, Weather weather = Weather.Sun, ZuzuMarket.Core.Taxation.FarmSnapshot? farm = null)
     {
         while (sim.CurrentDate < target)
         {
-            sim.OnDayStarted(sim.CurrentDate.AddDays(1), weather);
+            sim.OnDayStarted(sim.CurrentDate.AddDays(1), weather, farm);
         }
     }
 }

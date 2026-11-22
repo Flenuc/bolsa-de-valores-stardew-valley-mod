@@ -293,6 +293,12 @@ con reversión a la media + eventos. Balances trimestrales (por estación) con s
 
 ## 9. Sistema tributario
 
+> **Implementado en la Fase 2** (`Core/Taxation`, reglas en `data/taxes.json`): Monotributo A–K con recategorización
+> semestral y exclusión, IVA (RI) con saldo a favor, Ingresos Brutos por actividad, Seguridad e Higiene con mínimo,
+> ABL por edificios, Ganancias anual con escala, mínimo no imponible y 3 anticipos (verano, otoño, invierno), mora con
+> intereses diarios, intimación a los 7 días y multa del 10%. Pago por débito automático o en el escritorio de Lewis.
+> Sin período de gracia.
+
 ### 9.1 Motor
 Reglas en JSON: `{ impuesto, jurisdicción, hecho imponible, base, alícuota(s), régimen, período, vencimiento }`.
 Los impuestos se **devengan** con cada operación y se **liquidan** en DDJJ al cierre de cada período.
@@ -496,10 +502,13 @@ Cada parámetro puede además ajustarse individualmente en `config.json` (y con 
 
 ## 17. Pendientes técnicos
 
-- **Fase 2**: las descripciones de los asientos se guardan como texto en el idioma activo al registrarlos. Guardar una
-  clave de traducción + parámetros para que el libro diario se muestre siempre en el idioma actual.
-- **Fase 2**: las ventas directas a tiendas (Pierre, Willy, Clint…) se pagan al precio de mercado pero todavía no
-  suman oferta; solo el cajón de envíos mueve el precio.
-- **Fase 2**: la inflación se aplica a las tiendas que usan `ShopMenu`; faltan las construcciones de Robin y las
-  mejoras de herramientas de Clint.
+Resueltos en la Fase 2: descripciones de asientos traducibles (`DescriptionKey`), ventas a tiendas que suman oferta,
+inflación en las construcciones de Robin (`Data/Buildings`; las mejoras de Clint ya son `ShopMenu`).
+
 - **Fase 2+**: el impacto de una venta grande se aplica al día siguiente; evaluar *slippage* dentro del mismo envío.
+- **Fase 2+**: la ampliación de la casa (diálogo con Robin) y otros gastos fuera de menús de compra se asientan como
+  "no clasificados" y no dan crédito fiscal.
+- **Fase 2+**: pagos parciales y planes de pago (moratorias); impuesto a los débitos y créditos (con la cuenta
+  bancaria de la Fase 3); Bienes Personales, Inmobiliario Rural y Sellos.
+- **Fase 6**: las deudas "en gestión de cobro" quedan a la espera de los embargos.
+- **Verificar en el juego**: coordenadas del escritorio de Lewis (`paymentDesk` en `data/taxes.json`, ver con `zuzu_here`).
