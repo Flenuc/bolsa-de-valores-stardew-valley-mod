@@ -6,6 +6,7 @@ using StardewValley;
 using StardewValley.Menus;
 using ZuzuMarket.Core.Events;
 using ZuzuMarket.Core.Markets;
+using ZuzuMarket.Core.Money;
 using ZuzuMarket.Core.Simulation;
 using ZuzuMarket.Core.Time;
 using ZuzuMarket.Game.Bridges;
@@ -17,13 +18,14 @@ namespace ZuzuMarket.Game.UI;
 /// Terminal Bursátil de Valle Inversiones: panel, acciones, renta fija, cartera y cuenta.
 /// Se dibuja en "modo inmediato": cada cuadro registra las zonas clickeables que dibuja.
 /// </summary>
-internal sealed class TerminalMenu : IClickableMenu
+internal sealed partial class TerminalMenu : IClickableMenu
 {
     private enum Tab
     {
         Panel,
         Stocks,
         FixedIncome,
+        Derivatives,
         Portfolio,
         Account,
     }
@@ -149,6 +151,9 @@ internal sealed class TerminalMenu : IClickableMenu
                 case Tab.FixedIncome:
                     DrawFixedIncome(b, content);
                     break;
+                case Tab.Derivatives:
+                    DrawDerivatives(b, content);
+                    break;
                 case Tab.Portfolio:
                     DrawPortfolio(b, content);
                     break;
@@ -165,7 +170,14 @@ internal sealed class TerminalMenu : IClickableMenu
 
         if (_ticket is not null)
         {
-            DrawTicket(b);
+            if (Broker.FindFuture(_ticket.Instrument) is not null || Broker.FindOption(_ticket.Instrument) is not null)
+            {
+                DrawDerivativeTicket(b);
+            }
+            else
+            {
+                DrawTicket(b);
+            }
         }
 
         base.draw(b);
@@ -614,13 +626,57 @@ internal sealed class TerminalMenu : IClickableMenu
             }
         }
 
+        foreach (FuturesPosition fp in Broker.Derivatives.FuturesPositions)
+        {
+            if (Broker.FindFuture(fp.ContractId) is not { } contract)
+            {
+                continue;
+            }
+
+            double price = Broker.FuturePrice(contract, Date);
+            decimal result = MoneyRounding.Round((decimal)((price - fp.EntryPrice) * Broker.ContractSize(contract) * fp.Quantity));
+            Text(b, fp.ContractId, area.X + cols[0], y);
+            Text(b, fp.Quantity.ToString("+#,0;-#,0", Formatting.Culture(I18n)), area.X + cols[1], y);
+            Text(b, Price(fp.EntryPrice), area.X + cols[2], y);
+            Text(b, Price(price), area.X + cols[3], y);
+            Text(b, Money((decimal)(price * Broker.ContractSize(contract) * Math.Abs(fp.Quantity))), area.X + cols[4], y);
+            Text(b, Money(result), area.X + cols[5], y, result >= 0 ? Positive : Negative);
+            y += 40;
+        }
+
+        foreach (OptionPosition op in Broker.Derivatives.OptionPositions)
+        {
+            if (Broker.FindOption(op.SeriesId) is not { } series)
+            {
+                continue;
+            }
+
+            int lot = Broker.DerivativesRules.OptionLot;
+            double premium = Broker.OptionPremium(series, Date, Time);
+            decimal value = MoneyRounding.Round((decimal)(premium * lot * Math.Abs(op.Quantity)));
+            decimal result = op.Quantity > 0 ? value - op.PremiumBasis : op.PremiumBasis - value;
+            Text(b, op.SeriesId, area.X + cols[0], y);
+            Text(b, op.Quantity.ToString("+#,0;-#,0", Formatting.Culture(I18n)), area.X + cols[1], y);
+            Text(b, Price((double)(op.PremiumBasis / (Math.Abs(op.Quantity) * lot))), area.X + cols[2], y);
+            Text(b, Price(premium), area.X + cols[3], y);
+            Text(b, Money(value), area.X + cols[4], y);
+            Text(b, Money(result), area.X + cols[5], y, result >= 0 ? Positive : Negative);
+            y += 40;
+        }
+
+        if (Broker.HasDerivativePositions)
+        {
+            Text(b, MarginSummary(), area.X, y, Broker.Derivatives.MarginCallDeadline is null ? Muted : Negative);
+            y += 40;
+        }
+
         foreach (Caucion c in Broker.State.Cauciones)
         {
             Text(b, T("terminal.caucion.active", new { amount = Money(c.Principal), date = GameDateBridge.Format(I18n, c.Maturity), interest = Money(c.Interest) }), area.X, y);
             y += 36;
         }
 
-        if (Broker.State.Stocks.Count + Broker.State.Letras.Count + Broker.State.Bonds.Count + Broker.State.Cauciones.Count == 0)
+        if (Broker.State.Stocks.Count + Broker.State.Letras.Count + Broker.State.Bonds.Count + Broker.State.Cauciones.Count == 0 && !Broker.HasDerivativePositions)
         {
             Text(b, T("terminal.portfolio.empty"), area.X, y, Muted);
             y += 40;

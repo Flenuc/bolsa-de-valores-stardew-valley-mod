@@ -88,7 +88,9 @@ internal sealed class ModEntry : Mod
         _municipalidad = new Municipalidad(helper, Monitor, () => Simulation, _taxMail, _money);
         _brokerMail = new BrokerMail(helper, ModManifest, _config, _taxMail);
         _phone = new PhoneService(Monitor, _config);
-        _terminalActions = new TerminalActions(_brokerMail, _money);
+        var silo = new SiloBridge(() => Simulation);
+        _terminalActions = new TerminalActions(_brokerMail, _money, silo);
+        helper.Events.Display.MenuChanged += silo.OnMenuChanged;
         var objects = new ModObjects(helper.Translation);
 
         var harmony = new Harmony(ModManifest.UniqueID);
@@ -110,7 +112,7 @@ internal sealed class ModEntry : Mod
         helper.Events.Content.AssetRequested += objects.OnAssetRequested;
         helper.Events.Content.AssetRequested += _brokerMail.OnAssetRequested;
 
-        new ConsoleCommands(helper, Monitor, _config, () => Simulation, ResetSimulation, _news, _municipalidad, _taxMail, _phone, OpenTerminal).Register();
+        new ConsoleCommands(helper, Monitor, _config, () => Simulation, ResetSimulation, _news, _municipalidad, _taxMail, _phone, OpenTerminal, () => { if (Simulation is not null) { silo.Open(Simulation); } }).Register();
     }
 
     private void OnSaveLoaded(object? sender, SaveLoadedEventArgs e)

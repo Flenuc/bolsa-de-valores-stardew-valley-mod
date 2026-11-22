@@ -83,7 +83,7 @@ public sealed class EconomySimulation
         Stocks = new StockMarket(data, state.Markets);
         CentralBank = new CentralBank(state.CentralBank, data.Markets.CentralBank);
         Credit = new CreditEngine(data, state.Markets.Issuers);
-        Broker = new Broker(data, state.Markets, ledger, Stocks, CentralBank, Credit, Inflation, () => Taxes.Regime);
+        Broker = new Broker(data, state.Markets, ledger, Stocks, CentralBank, Credit, Inflation, Market, Events, Taxes, () => Difficulty);
 
         if (!Inflation.HasStarted)
         {
@@ -112,6 +112,12 @@ public sealed class EconomySimulation
         {
             Broker.IssueBonds(state.CurrentDate);
             state.Markets.BondsStarted = true;
+        }
+
+        if (state.Markets.Derivatives.ListedFor is null)
+        {
+            // Partida nueva, o del esquema 5 que recién migra: se listan futuros y opciones.
+            Broker.ListDerivatives(state.CurrentDate);
         }
     }
 
@@ -356,6 +362,23 @@ public sealed class EconomySimulation
     private List<RateDecision> _rateDecisions = new();
     private List<CreditEvent> _creditEvents = new();
 
+    /// <summary>
+    /// Debug: mueve el precio de un commodity (impacto logarítmico) y corre el control de garantías,
+    /// para probar llamadas de margen.
+    /// </summary>
+    public List<MarketNotice> ForceMarginTest(string commodityId, double logShock)
+    {
+        if (Data.FindCommodity(commodityId) is not { } commodity)
+        {
+            return new List<MarketNotice>();
+        }
+
+        Market.Get(commodity.Id).X += logShock;
+        RecalculatePrices();
+        Broker.SettleFutures(_state.CurrentDate);
+        return Broker.CheckMargin(_state.CurrentDate);
+    }
+
     /// <summary>Fuerza el default de un emisor (comando de debug). Devuelve false si no existe o ya estaba en default.</summary>
     public bool ForceDefault(string issuer)
     {
@@ -420,6 +443,8 @@ public sealed class EconomySimulation
         {
             Broker.IssueBonds(day);
         }
+
+        Broker.ListDerivatives(day);
     }
 
     private long? _autoDebitBudget;
@@ -505,6 +530,17 @@ public sealed class EconomySimulation
         Market.Step(day, Inflation.Index, (double)difficulty.PriceVolatility, _state.Seed, c => Events.PriceImpact(c, day));
         Stocks.Step(day, Market, Inflation.Index, (double)difficulty.PriceVolatility, _state.Seed);
         marketNotices.AddRange(Broker.OnDay(day));
+        if (day.IsBusinessDay)
+        {
+            // Derivados al cierre: diferencias diarias, entregas y ejercicios que vencen, control de garantías.
+            Broker.SettleFutures(day);
+            marketNotices.AddRange(Broker.DeliverFutures(day));
+            marketNotices.AddRange(Broker.ExpireOptions(day));
+            if (Broker.HasDerivativePositions || Broker.MarginBalance != 0)
+            {
+                marketNotices.AddRange(Broker.CheckMargin(day));
+            }
+        }
         RunAutoDebit(day);
         taxNotices.AddRange(Taxes.OnDay(day));
     }

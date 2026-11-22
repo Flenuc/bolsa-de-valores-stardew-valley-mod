@@ -122,6 +122,8 @@ public sealed class MarketRules
 
     public int RestructuredInstallments { get; set; } = 4;
 
+    public DerivativesRules Derivatives { get; set; } = new();
+
     public double Premium(int days)
     {
         if (TermPremium.Count == 0)

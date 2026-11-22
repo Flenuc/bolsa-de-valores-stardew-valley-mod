@@ -94,7 +94,7 @@ public sealed class TaxEngine
     }
 
     /// <summary>Registra una venta (importe con IVA incluido si es Responsable Inscripto).</summary>
-    public JournalEntry? RecordSale(EconomicDate date, string activity, decimal gross, SaleChannel channel)
+    public JournalEntry? RecordSale(EconomicDate date, string activity, decimal gross, SaleChannel channel, string? debitAccount = null)
     {
         if (gross <= 0)
         {
@@ -112,7 +112,7 @@ public sealed class TaxEngine
         decimal net = gross - iva;
         var lines = new List<JournalLine>
         {
-            JournalLine.ToDebit(channel == SaleChannel.Shipping ? SystemAccounts.DeudoresPorVentas : SystemAccounts.Caja, gross),
+            JournalLine.ToDebit(debitAccount ?? (channel == SaleChannel.Shipping ? SystemAccounts.DeudoresPorVentas : SystemAccounts.Caja), gross),
             JournalLine.ToCredit(SystemAccounts.Ventas, net),
         };
         if (iva > 0)
@@ -136,7 +136,7 @@ public sealed class TaxEngine
     }
 
     /// <summary>Registra una compra en una tienda (con factura: da crédito fiscal si es Responsable Inscripto).</summary>
-    public JournalEntry? RecordPurchase(EconomicDate date, decimal gross)
+    public JournalEntry? RecordPurchase(EconomicDate date, decimal gross, string? creditAccount = null)
     {
         if (gross <= 0)
         {
@@ -158,7 +158,7 @@ public sealed class TaxEngine
             lines.Add(JournalLine.ToDebit(SystemAccounts.IvaCreditoFiscal, iva));
         }
 
-        lines.Add(JournalLine.ToCredit(SystemAccounts.Caja, gross));
+        lines.Add(JournalLine.ToCredit(creditAccount ?? SystemAccounts.Caja, gross));
         JournalEntry entry = _ledger.Post(Entity, date, new EntryText("Compra en tienda", "entry.purchase"), EntrySources.Compra, lines.ToArray());
 
         _s.Current.NetPurchases += net;

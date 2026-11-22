@@ -99,12 +99,23 @@ internal sealed class BrokerMail
                 MarketNoticeKind.CaucionMatured => I18n.Get("broker.hud.caucion", new { amount = Formatting.Money(I18n, n.Amount) }),
                 MarketNoticeKind.Coupon => I18n.Get("broker.hud.coupon", new { id = n.Instrument, amount = Formatting.Money(I18n, n.Amount) }),
                 MarketNoticeKind.BondMatured => I18n.Get("broker.hud.bond-matured", new { id = n.Instrument }),
+                MarketNoticeKind.MarginTopUp => I18n.Get("broker.hud.margin-topup", new { amount = Formatting.Money(I18n, n.Amount) }),
+                MarketNoticeKind.MarginCall => I18n.Get("broker.hud.margin-call", new { amount = Formatting.Money(I18n, n.Amount) }),
+                MarketNoticeKind.Liquidation => I18n.Get("broker.hud.liquidation"),
+                MarketNoticeKind.FuturesDelivered => I18n.Get("broker.hud.delivered", new { id = n.Instrument, amount = Formatting.Money(I18n, n.Amount) }),
+                MarketNoticeKind.FuturesShortfall => n.Amount > 0
+                    ? I18n.Get("broker.hud.shortfall", new { id = n.Instrument, units = n.Amount.ToString("#,0") })
+                    : I18n.Get("broker.hud.no-cash-delivery", new { id = n.Instrument }),
+                MarketNoticeKind.FuturesReceived => I18n.Get("broker.hud.received", new { id = n.Instrument, units = n.Amount.ToString("#,0") }),
+                MarketNoticeKind.OptionExercised => I18n.Get("broker.hud.exercised", new { id = n.Instrument }),
+                MarketNoticeKind.OptionExpired => I18n.Get("broker.hud.option-expired", new { id = n.Instrument }),
                 MarketNoticeKind.Exchange => I18n.Get("broker.hud.exchange", new { old = n.Instrument.Split('>')[0], @new = n.Instrument.Split('>')[^1], quantity = n.Amount.ToString("#,0") }),
                 _ => null,
             };
             if (text is not null)
             {
-                _hud.Hud(text);
+                bool bad = n.Kind is MarketNoticeKind.MarginCall or MarketNoticeKind.Liquidation or MarketNoticeKind.FuturesShortfall;
+                _hud.Hud(text, bad ? 3 : 2);
             }
         }
     }

@@ -80,6 +80,8 @@ public enum InstrumentKind
     Stock,
     Letra,
     Bond,
+    Future,
+    Option,
 }
 
 public sealed record Trade(
@@ -143,6 +145,8 @@ public sealed class MarketsState
 
     /// <summary>Calificación y situación de cada emisor (el soberano y las empresas).</summary>
     public Dictionary<string, IssuerState> Issuers { get; set; } = new();
+
+    public DerivativesState Derivatives { get; set; } = new();
 }
 
 public enum MarketNoticeKind
@@ -154,6 +158,14 @@ public enum MarketNoticeKind
     Coupon,
     BondMatured,
     Exchange,
+    MarginTopUp,
+    MarginCall,
+    Liquidation,
+    FuturesDelivered,
+    FuturesShortfall,
+    FuturesReceived,
+    OptionExercised,
+    OptionExpired,
 }
 
 /// <summary>Algo del mercado que el juego debe comunicar (dividendo cobrado, vencimiento, licitación).</summary>

@@ -1,5 +1,7 @@
 using System.Globalization;
+using ZuzuMarket.Core.Commodities;
 using ZuzuMarket.Core.Data;
+using ZuzuMarket.Core.Events;
 using ZuzuMarket.Core.Ledger;
 using ZuzuMarket.Core.Macro;
 using ZuzuMarket.Core.Money;
@@ -58,9 +60,18 @@ public sealed partial class Broker
     private readonly CreditEngine _credit;
     private readonly InflationModel _inflation;
     private readonly Func<TaxRegime> _regime;
+    private readonly CommodityMarket _commodities;
+    private readonly EventEngine _events;
+    private readonly TaxEngine _taxes;
+    private readonly Func<DifficultyDefinition> _difficulty;
 
-    public Broker(GameData data, MarketsState state, GeneralLedger ledger, StockMarket stocks, CentralBank centralBank, CreditEngine credit, InflationModel inflation, Func<TaxRegime> regime)
+    public Broker(GameData data, MarketsState state, GeneralLedger ledger, StockMarket stocks, CentralBank centralBank, CreditEngine credit, InflationModel inflation, CommodityMarket commodities, EventEngine events, TaxEngine taxes, Func<DifficultyDefinition> difficulty)
     {
+        _commodities = commodities;
+        _events = events;
+        _taxes = taxes;
+        _difficulty = difficulty;
+        _regime = () => taxes.Regime;
         _data = data;
         _s = state;
         _ledger = ledger;
@@ -68,7 +79,6 @@ public sealed partial class Broker
         _centralBank = centralBank;
         _credit = credit;
         _inflation = inflation;
-        _regime = regime;
     }
 
     public BrokerState State => _s.Broker;
@@ -488,8 +498,12 @@ public sealed partial class Broker
         double stocks = _s.Broker.Stocks.Sum(kv => (_stocks.Find(kv.Key) is null ? 0 : _stocks.PriceAt(kv.Key, timeOfDay)) * kv.Value.Quantity);
         double letras = _s.Broker.Letras.Sum(kv => (FindLetra(kv.Key) is { } l ? LetraPrice(l, date) : 0) * kv.Value.Quantity);
         double bonds = _s.Broker.Bonds.Sum(kv => (FindBond(kv.Key) is { } b ? BondPrice(b, date) : 0) * kv.Value.Quantity);
+        double options = _s.Derivatives.OptionPositions.Sum(p =>
+            FindOption(p.SeriesId) is { } s ? OptionPremium(s, date, timeOfDay) * DerivativesRules.OptionLot * p.Quantity : 0);
+        double futures = _s.Derivatives.FuturesPositions.Sum(p =>
+            FindFuture(p.ContractId) is { } f ? (FuturePrice(f, date) - p.LastSettle) * ContractSize(f) * p.Quantity : 0);
         decimal cauciones = _s.Broker.Cauciones.Sum(c => c.Principal);
-        return MoneyRounding.Round((decimal)(stocks + letras + bonds)) + cauciones;
+        return MoneyRounding.Round((decimal)(stocks + letras + bonds + options + futures)) + cauciones + MarginBalance;
     }
 
     private TradeError Validate(InstrumentKind kind, string id, TradeSide side, long quantity, EconomicDate date, int timeOfDay, decimal buyTotal)
@@ -515,7 +529,13 @@ public sealed partial class Broker
         }
 
         Dictionary<string, Holding> book = Book(kind);
-        return book.TryGetValue(id, out Holding? holding) && holding.Quantity >= quantity ? TradeError.None : TradeError.InsufficientHoldings;
+        long available = book.TryGetValue(id, out Holding? holding) ? holding.Quantity : 0;
+        if (kind == InstrumentKind.Stock)
+        {
+            available -= BlockedShares(id);
+        }
+
+        return available >= quantity ? TradeError.None : TradeError.InsufficientHoldings;
     }
 
     private static void AddFees(List<JournalLine> lines, decimal expense, decimal ivaCredit)

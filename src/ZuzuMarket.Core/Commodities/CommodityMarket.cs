@@ -120,6 +120,21 @@ public sealed class CommodityMarket
         }
     }
 
+    /// <summary>
+    /// Multiplicador real esperado en <paramref name="target"/>: el ruido y el stock decaen hacia cero, se aplica el
+    /// factor estacional de esa fecha y el impacto de los eventos que sigan activos ese día.
+    /// </summary>
+    public double ExpectedRealMultiplier(CommodityDefinition commodity, EconomicDate from, EconomicDate target, double eventImpactAtTarget)
+    {
+        CommodityState state = _states[commodity.Id];
+        CommodityMarketParameters p = commodity.Market;
+        int days = Math.Max(0, from.DaysUntil(target));
+        double x = state.X * Math.Pow(1 - p.MeanReversion, days);
+        double stock = (state.Stock + state.PendingSales) * Math.Pow(1 - p.StockDecay, days);
+        double log = x - (p.Impact * Math.Log(1 + (stock / p.BaseVolume))) + Math.Log(commodity.SeasonFactor(target.Season)) + eventImpactAtTarget;
+        return Math.Clamp(Math.Exp(log), MinRealMultiplier, MaxRealMultiplier);
+    }
+
     private static void Price(CommodityDefinition commodity, CommodityState state, EconomicDate date, double inflationIndex, double eventImpact)
     {
         CommodityMarketParameters p = commodity.Market;

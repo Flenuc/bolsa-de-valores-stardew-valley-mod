@@ -13,8 +13,8 @@ namespace ZuzuMarket.Core.State;
 /// <summary>Todo el estado del mod para una partida. Se guarda junto con la partida.</summary>
 public sealed class WorldState
 {
-    /// <summary>1: Fase 0. 2: inflación, commodities y eventos. 3: impuestos. 4: bolsa. 5: BCRF, bonos y crédito.</summary>
-    public const int CurrentSchemaVersion = 5;
+    /// <summary>1: Fase 0. 2: inflación, commodities y eventos. 3: impuestos. 4: bolsa. 5: BCRF, bonos y crédito. 6: derivados.</summary>
+    public const int CurrentSchemaVersion = 6;
 
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
 
@@ -105,6 +105,9 @@ public static class WorldStateSerializer
 
         // 4 → 5: el BCRF arranca con la tasa de la regla, se califican los emisores y se emiten los bonos al cargar.
         state.CentralBank ??= new CentralBankState();
+
+        // 5 → 6: futuros y opciones se listan al cargar; el silo arranca vacío.
+        state.Markets.Derivatives ??= new DerivativesState();
         state.SchemaVersion = WorldState.CurrentSchemaVersion;
         return state;
     }

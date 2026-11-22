@@ -46,6 +46,9 @@ public sealed class CommodityDefinition
     /// <summary>Unidades por contrato de futuro en MATZU.</summary>
     public int FuturesContractSize { get; set; }
 
+    /// <summary>Precio de venta vanilla (calidad normal) de una unidad de referencia, para cotizar el futuro.</summary>
+    public double ReferencePrice { get; set; } = 1;
+
     /// <summary>Parámetros del modelo de precios.</summary>
     public CommodityMarketParameters Market { get; set; } = new();
 

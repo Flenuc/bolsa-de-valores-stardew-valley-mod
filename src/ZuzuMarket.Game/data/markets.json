@@ -60,6 +60,27 @@
   "caucionRateFactor": 0.85,
   "caucionMinimum": 100,
 
+  // Derivados (MATZU y opciones). Garantías: inicial sobre el nocional (× volatilidad de la dificultad) y mínima
+  // como fracción de la inicial. Opciones: lote de 10 acciones, ejercicios alrededor del precio actual.
+  "derivatives": {
+    "futuresMaturities": 3,
+    "futuresSpread": 0.002,
+    "futuresCommissionRate": 0.001,
+    "initialMargin": 0.15,
+    "maintenanceRatio": 0.75,
+    "deliveryPenalty": 0.20,
+    "silverPremium": 0.10,
+    "goldPremium": 0.20,
+    "iridiumPremium": 0.40,
+    "optionLot": 10,
+    "optionMaturities": 2,
+    "optionStrikes": [0.90, 0.95, 1.00, 1.05, 1.10],
+    "optionSpread": 0.03,
+    "optionCommissionRate": 0.005,
+    "shortOptionMarginRate": 0.20,
+    "shortOptionMinimumRate": 0.10
+  },
+
   "merzuBase": 1000,
   "intradayTicks": 48
 }

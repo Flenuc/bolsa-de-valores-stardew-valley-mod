@@ -9,8 +9,9 @@ con cauciones, letras, bonos, obligaciones negociables, acciones, futuros con en
 **Estado:** Fase 3 — precios de mercado con oferta, estación, eventos e inflación; contabilidad real e impuestos
 (Monotributo/RI, IVA, IIBB, Seguridad e Higiene, ABL, Ganancias); y ahora la **Bolsa de Zuzu**: cuenta comitente en
 Valle Inversiones, 10 acciones con índice MERZU, Letras del Tesoro, cauciones, bonos soberanos (fijos, variables y CER)
-y obligaciones negociables, con BCRF, curva de tasas, calificaciones, riesgo país y defaults; desde el teléfono del
-pueblo o la Terminal Bursátil fabricable. Requiere Stardew Valley 1.6 y SMAPI 4.x.
+y obligaciones negociables, con BCRF, curva de tasas, calificaciones, riesgo país y defaults; futuros MATZU con
+garantías y entrega física en el Silo de Acopio, y opciones con compra y lanzamiento; desde el teléfono del pueblo o la
+Terminal Bursátil fabricable. Requiere Stardew Valley 1.6 y SMAPI 4.x.
 
 ## Compilar
 
@@ -57,6 +58,10 @@ Si el juego no está en la ruta estándar de Steam/GOG, agregá `<GamePath>` en 
 | `zuzu_rates` | Tasa del BCRF, curva soberana, riesgo país y calificaciones |
 | `zuzu_bonds` | Bonos y obligaciones negociables con TIR, calificación y precio |
 | `zuzu_default <soberano\|ticker>` | (solo `DebugMode`) fuerza el default de un emisor |
+| `zuzu_futures [commodity]` | Futuros MATZU, posiciones y garantías |
+| `zuzu_options <ticker>` | Cadena de opciones de una acción |
+| `zuzu_silo [open]` | Contenido del Silo de Acopio (`open` abre el cofre; requiere `DebugMode`) |
+| `zuzu_margin_call <commodity> <impacto>` | (solo `DebugMode`) mueve un precio y corre el control de garantías |
 | `zuzu_place_phone` | Mueve el teléfono de Valle Inversiones al tile que tenés enfrente (en el pueblo) |
 | `zuzu_terminal` | (solo `DebugMode`) abre la Terminal Bursátil en cualquier lado |
 | `zuzu_trade buy\|sell <especie> <cant>` | (solo `DebugMode`) opera sin la Terminal |

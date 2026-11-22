@@ -31,9 +31,11 @@ internal sealed class ConsoleCommands
     private readonly TaxMail _taxMail;
     private readonly PhoneService _phone;
     private readonly Action _openTerminal;
+    private readonly Action _openSilo;
 
-    public ConsoleCommands(IModHelper helper, IMonitor monitor, ModConfig config, Func<EconomySimulation?> getSimulation, Action reset, NewsService news, Municipalidad municipalidad, TaxMail taxMail, PhoneService phone, Action openTerminal)
+    public ConsoleCommands(IModHelper helper, IMonitor monitor, ModConfig config, Func<EconomySimulation?> getSimulation, Action reset, NewsService news, Municipalidad municipalidad, TaxMail taxMail, PhoneService phone, Action openTerminal, Action openSilo)
     {
+        _openSilo = openSilo;
         _phone = phone;
         _openTerminal = openTerminal;
         _news = news;
@@ -72,6 +74,10 @@ internal sealed class ConsoleCommands
         _helper.ConsoleCommands.Add("zuzu_rates", I18n.Get("cmd.rates.help"), WithSimulation(Rates));
         _helper.ConsoleCommands.Add("zuzu_bonds", I18n.Get("cmd.bonds.help"), WithSimulation(Bonds));
         _helper.ConsoleCommands.Add("zuzu_default", I18n.Get("cmd.default.help"), WithSimulation(DefaultCmd));
+        _helper.ConsoleCommands.Add("zuzu_futures", I18n.Get("cmd.futures.help"), WithSimulation(FuturesCmd));
+        _helper.ConsoleCommands.Add("zuzu_options", I18n.Get("cmd.options.help"), WithSimulation(OptionsCmd));
+        _helper.ConsoleCommands.Add("zuzu_silo", I18n.Get("cmd.silo.help"), WithSimulation(SiloCmd));
+        _helper.ConsoleCommands.Add("zuzu_margin_call", I18n.Get("cmd.margin-call.help"), WithSimulation(MarginCallCmd));
     }
 
     private Action<string, string[]> WithSimulation(Action<EconomySimulation, string[]> action) => (_, args) =>
@@ -621,6 +627,95 @@ internal sealed class ConsoleCommands
         _monitor.Log(sim.ForceDefault(args[0])
             ? I18n.Get("cmd.default.done", new { issuer = args[0] })
             : I18n.Get("cmd.default.unknown", new { issuer = args[0] }), LogLevel.Info);
+    }
+
+    private void FuturesCmd(EconomySimulation sim, string[] args)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine(I18n.Get("cmd.futures.title"));
+        IEnumerable<FuturesContract> contracts = sim.Broker.Derivatives.Futures.OrderBy(f => f.CommodityId).ThenBy(f => f.Expiry);
+        if (args.Length > 0)
+        {
+            contracts = contracts.Where(f => string.Equals(f.CommodityId, args[0], StringComparison.OrdinalIgnoreCase));
+        }
+
+        foreach (FuturesContract f in contracts)
+        {
+            long pos = sim.Broker.FuturesPositionFor(f.Id)?.Quantity ?? 0;
+            sb.AppendLine($"  {f.Id,-14} {GameDateBridge.Format(I18n, f.Expiry),-28} {sim.Broker.FuturePrice(f, sim.CurrentDate),10:0.00}g × {sim.Broker.ContractSize(f),4}   {(pos == 0 ? "" : pos.ToString("+0;-0"))}");
+        }
+
+        sb.Append(I18n.Get("cmd.futures.margin", new
+        {
+            balance = Money(sim.Broker.MarginBalance),
+            required = Money(sim.Broker.RequiredMargin(sim.CurrentDate, Game1.timeOfDay)),
+        }));
+        _monitor.Log(sb.ToString(), LogLevel.Info);
+    }
+
+    private void OptionsCmd(EconomySimulation sim, string[] args)
+    {
+        string ticker = args.Length > 0 ? args[0].ToUpperInvariant() : sim.Stocks.Companies[0].Ticker;
+        var sb = new StringBuilder();
+        sb.AppendLine(I18n.Get("cmd.options.title", new { ticker, price = sim.Stocks.PriceAt(ticker, Game1.timeOfDay).ToString("0.00") }));
+        foreach (OptionSeries o in sim.Broker.Derivatives.Options.Where(o => o.Ticker == ticker).OrderBy(o => o.Expiry).ThenBy(o => o.Strike).ThenBy(o => o.Type))
+        {
+            long pos = sim.Broker.OptionPositionFor(o.Id)?.Quantity ?? 0;
+            sb.AppendLine($"  {o.Id,-18} prima {sim.Broker.OptionPremium(o, sim.CurrentDate, Game1.timeOfDay),8:0.00}g  delta {sim.Broker.OptionDelta(o, sim.CurrentDate, Game1.timeOfDay),5:0.00}  {(pos == 0 ? "" : pos.ToString("+0;-0"))}");
+        }
+
+        _monitor.Log(sb.ToString().TrimEnd(), LogLevel.Info);
+    }
+
+    private void SiloCmd(EconomySimulation sim, string[] args)
+    {
+        if (args.Length > 0 && args[0] == "open")
+        {
+            if (!_config.DebugMode)
+            {
+                _monitor.Log(I18n.Get("cmd.debug-only", new { command = "zuzu_silo open" }), LogLevel.Warn);
+                return;
+            }
+
+            _openSilo();
+            return;
+        }
+
+        var sb = new StringBuilder();
+        sb.AppendLine(I18n.Get("cmd.silo.title"));
+        if (sim.Broker.Silo.Count == 0)
+        {
+            sb.Append(I18n.Get("cmd.silo.empty"));
+        }
+
+        foreach (SiloItem i in sim.Broker.Silo)
+        {
+            sb.AppendLine($"  {i.ItemId,-6} calidad {i.Quality}  × {i.Stack}  (precio base {i.BasePrice}g)");
+        }
+
+        _monitor.Log(sb.ToString().TrimEnd(), LogLevel.Info);
+    }
+
+    private void MarginCallCmd(EconomySimulation sim, string[] args)
+    {
+        if (!_config.DebugMode)
+        {
+            _monitor.Log(I18n.Get("cmd.debug-only", new { command = "zuzu_margin_call" }), LogLevel.Warn);
+            return;
+        }
+
+        if (args.Length < 2 || !double.TryParse(args[1], System.Globalization.NumberStyles.Float, CultureInfo.InvariantCulture, out double shock))
+        {
+            _monitor.Log(I18n.Get("cmd.margin-call.usage"), LogLevel.Info);
+            return;
+        }
+
+        var notices = sim.ForceMarginTest(args[0], shock);
+        _monitor.Log(I18n.Get("cmd.margin-call.done", new
+        {
+            notices = notices.Count == 0 ? "-" : string.Join(", ", notices.Select(n => n.Kind)),
+            balance = Money(sim.Broker.MarginBalance),
+        }), LogLevel.Info);
     }
 
     private void PlacePhone(EconomySimulation sim, string[] args)

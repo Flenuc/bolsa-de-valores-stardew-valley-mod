@@ -379,6 +379,16 @@ en default: cupones suspendidos, precio cae al valor de recupero esperado, posib
 | **Futuros** (MATZU) | Sobre commodities, con vencimiento a fin de cada estación. **Entrega física**. Garantías y diferencias diarias |
 | **Opciones** | Calls y puts europeas sobre acciones (entregan acciones) y sobre futuros de commodities. Valuación Black-Scholes / Black-76 con volatilidad histórica + sonrisa simple |
 
+> **Implementado en la Fase 5** (`Core/Markets/Derivatives.cs`, `Broker.Futures/Options/Margin.cs`): futuros por
+> commodity para la estación actual y las 2 siguientes (vencen el viernes 26), precio = precio vanilla × multiplicador
+> real esperado al vencimiento × IPC proyectado; garantía inicial 15% del nocional (× volatilidad de la dificultad) y
+> mínima 75%; diferencias diarias, reposición automática, llamada de margen hasta el día hábil siguiente y liquidación
+> forzosa. Entrega física desde/hacia un **Silo de Acopio virtual** (prima por calidad 10/20/40%, multa del 20% por
+> faltante; la entrega es venta/compra con IVA e IIBB). Opciones europeas sobre las 10 acciones (lote 10, 5 ejercicios,
+> 2 vencimientos), Black-Scholes con la volatilidad de cada empresa y la tasa del BCRF; compra, lanzamiento cubierto
+> (bloquea acciones) y descubierto con garantía; ejercicio automático con entrega de acciones o por diferencia.
+> Pendiente: opciones sobre futuros.
+
 ### 10.4 Futuros con entrega física
 - Contrato: commodity, tamaño, calidad mínima (normal; plata/oro/iridio pagan prima), mes de entrega.
 - **Garantía inicial** al abrir posición; **diferencias diarias** (mark-to-market). Si la garantía cae debajo del

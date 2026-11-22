@@ -11,12 +11,16 @@ internal sealed class TerminalActions
 {
     private readonly BrokerMail _mail;
     private readonly MoneyTracker _money;
+    private readonly SiloBridge _silo;
 
-    public TerminalActions(BrokerMail mail, MoneyTracker money)
+    public TerminalActions(BrokerMail mail, MoneyTracker money, SiloBridge silo)
     {
         _mail = mail;
         _money = money;
+        _silo = silo;
     }
+
+    public void OpenSilo(EconomySimulation sim) => _silo.Open(sim);
 
     public void OpenAccount(EconomySimulation sim)
     {
