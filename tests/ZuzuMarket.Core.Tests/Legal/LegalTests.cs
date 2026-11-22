@@ -220,6 +220,7 @@ public class LegalTests
         Assert.True(ladder.Sum(d => d.Day.CashSeized) > 70_000); // el bolsillo (80.000) va a los acreedores…
         Assert.Equal(500m, Balance(sim, SystemAccounts.Caja)); // …salvo el mínimo inembargable
         Assert.Equal(0d, sim.Legal.State.Score);
+        Assert.Contains(ladder, d => d.Day.Notices.Any(n => n.Kind == LegalNoticeKind.CashSeized));
         Assert.Empty(sim.Broker.State.Stocks);
         Assert.Empty(sim.Broker.State.Bonds);
         Assert.Empty(sim.Broker.State.Cauciones);

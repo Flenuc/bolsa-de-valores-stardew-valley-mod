@@ -554,6 +554,7 @@
   "legal.hud.BankruptcyClosed": "Se cerró la quiebra: se condonaron {{amount}}. Quedás inhabilitado por un tiempo.",
   "legal.hud.Rehabilitated": "Terminó tu inhabilitación: podés volver a invertir.",
   "legal.hud.LoanTaken": "El Banco de Zuzu te prestó {{amount}}.",
+  "legal.hud.CashSeized": "Quiebra: se aplicaron {{amount}} de tu efectivo a las deudas (te quedan {{detail}}g inembargables).",
   "legal.hud.RatingChanged": "Tu calificación crediticia ahora es {{detail}}.",
 
   "broker.hud.repo-repaid": "Venció tu caución tomadora: se pagaron {{amount}}.",

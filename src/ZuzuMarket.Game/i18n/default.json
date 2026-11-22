@@ -554,6 +554,7 @@
   "legal.hud.BankruptcyClosed": "Bankruptcy closed: {{amount}} discharged. You are barred for a while.",
   "legal.hud.Rehabilitated": "Your bar ended: you can invest again.",
   "legal.hud.LoanTaken": "Banco de Zuzu lent you {{amount}}.",
+  "legal.hud.CashSeized": "Bankruptcy: {{amount}} of your cash went to your debts (you keep {{detail}}g exempt).",
   "legal.hud.RatingChanged": "Your credit rating is now {{detail}}.",
 
   "broker.hud.repo-repaid": "Your repo borrowing matured: {{amount}} repaid.",

@@ -365,7 +365,12 @@ public sealed class LegalEngine
         decimal pocket = Math.Floor(_ledger.GetBalance(Entity, SystemAccounts.Caja) - Rules.BankruptcyCashExempt);
         if (pocket >= 1 && DebtInCollection >= 1)
         {
-            day.CashSeized += PayDebts(pocket, SystemAccounts.Caja, date);
+            decimal seized = PayDebts(pocket, SystemAccounts.Caja, date);
+            day.CashSeized += seized;
+            if (seized > 0)
+            {
+                day.Notices.Add(new LegalNotice(LegalNoticeKind.CashSeized, date, seized, Rules.BankruptcyCashExempt.ToString("0", CultureInfo.InvariantCulture)));
+            }
         }
 
         SeizeSilo(date, day);

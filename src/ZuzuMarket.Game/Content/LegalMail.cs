@@ -55,7 +55,7 @@ internal sealed class LegalMail
             string amount = Formatting.Money(I18n, n.Amount);
             _hud.Hud(I18n.Get($"legal.hud.{n.Kind}", new { amount, detail = n.Detail ?? "" }),
                 n.Kind is LegalNoticeKind.EmbargoStarted or LegalNoticeKind.BankruptcyDeclared or LegalNoticeKind.GoodsSeized
-                    or LegalNoticeKind.AccountSeized or LegalNoticeKind.IncomeGarnished or LegalNoticeKind.SeizureRequested ? 3 : 2);
+                    or LegalNoticeKind.AccountSeized or LegalNoticeKind.CashSeized or LegalNoticeKind.IncomeGarnished or LegalNoticeKind.SeizureRequested ? 3 : 2);
 
             if (Letters.Contains(n.Kind) && _config.NewsLetters)
             {

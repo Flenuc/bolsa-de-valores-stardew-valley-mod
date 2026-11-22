@@ -140,6 +140,7 @@ public enum LegalNoticeKind
     Rehabilitated,
     LoanTaken,
     RatingChanged,
+    CashSeized,
 }
 
 public sealed record LegalNotice(LegalNoticeKind Kind, EconomicDate Date, decimal Amount = 0, string? Detail = null);
