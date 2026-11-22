@@ -44,6 +44,12 @@ internal sealed class Municipalidad
             return;
         }
 
+        // Sin boletas pendientes, el libro de finanzas del pueblo responde como siempre.
+        if (!sim.Taxes.Unpaid.Any())
+        {
+            return;
+        }
+
         _helper.Input.Suppress(e.Button);
         OpenDesk(sim);
     }

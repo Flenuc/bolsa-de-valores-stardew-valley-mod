@@ -93,7 +93,8 @@
     "fineRate": 0.10
   },
 
-  // Dónde se pagan las boletas a mano: escritorio del intendente Lewis.
-  // Para ubicarlo en el juego: parate frente al escritorio y usá el comando zuzu_here.
-  "paymentDesk": { "location": "ManorHouse", "x": 16, "y": 4, "width": 3, "height": 2 }
+  // Dónde se pagan las boletas a mano: el libro de finanzas del pueblo, en el escritorio del intendente Lewis.
+  // Si no hay boletas pendientes, el clic no se intercepta y el libro funciona como siempre.
+  // Para mover el lugar: parate frente al tile y usá el comando zuzu_here ("tile de enfrente").
+  "paymentDesk": { "location": "ManorHouse", "x": 2, "y": 5, "width": 1, "height": 1 }
 }

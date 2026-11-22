@@ -511,4 +511,4 @@ inflación en las construcciones de Robin (`Data/Buildings`; las mejoras de Clin
 - **Fase 2+**: pagos parciales y planes de pago (moratorias); impuesto a los débitos y créditos (con la cuenta
   bancaria de la Fase 3); Bienes Personales, Inmobiliario Rural y Sellos.
 - **Fase 6**: las deudas "en gestión de cobro" quedan a la espera de los embargos.
-- **Verificar en el juego**: coordenadas del escritorio de Lewis (`paymentDesk` en `data/taxes.json`, ver con `zuzu_here`).
+- Lugar de pago: libro de finanzas del pueblo en `ManorHouse` (2, 5); `paymentDesk` en `data/taxes.json`.
