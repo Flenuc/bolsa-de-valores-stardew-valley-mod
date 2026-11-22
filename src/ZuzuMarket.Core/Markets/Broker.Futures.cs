@@ -231,7 +231,8 @@ public sealed partial class Broker
         if (delivered > 0)
         {
             string activity = _taxes.ActivityFor(commodity.ItemIds[0], 0);
-            _taxes.RecordSale(date, activity, MoneyRounding.Round(gross), SaleChannel.Shop, SystemAccounts.CuentaComitente);
+            _taxes.RecordSale(date, activity, MoneyRounding.Round(gross), SaleChannel.Shop, SystemAccounts.CuentaComitente,
+                new EntryText($"Entrega de {contract.Id}", "entry.futures-delivery", new Dictionary<string, string> { ["instrument"] = contract.Id }));
             yield return new MarketNotice(MarketNoticeKind.FuturesDelivered, date, contract.Id, MoneyRounding.Round(gross));
         }
 

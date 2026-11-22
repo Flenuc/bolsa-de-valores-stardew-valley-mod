@@ -112,7 +112,7 @@ internal sealed partial class TerminalMenu
         dy += 6;
         Text(b, MarginSummary(), x, dy, Broker.Derivatives.MarginCallDeadline is null ? Muted : Negative);
         dy += 32;
-        foreach (string line in Wrap(T("terminal.futures.help"), w).Take(3))
+        foreach (string line in Wrap(T("terminal.futures.help"), w).Take(5))
         {
             Text(b, line, x, dy, Muted);
             dy += 28;
@@ -158,13 +158,13 @@ internal sealed partial class TerminalMenu
 
         y += 56;
         int aw = area.Width;
-        int[] cols = { 0, (int)(aw * 0.12), (int)(aw * 0.22), (int)(aw * 0.29), (int)(aw * 0.36), (int)(aw * 0.56), (int)(aw * 0.66), (int)(aw * 0.73), (int)(aw * 0.80) };
+        int[] cols = { 0, (int)(aw * 0.10), (int)(aw * 0.20), (int)(aw * 0.27), (int)(aw * 0.33), (int)(aw * 0.53), (int)(aw * 0.63), (int)(aw * 0.70), (int)(aw * 0.76) };
         Text(b, T("terminal.col.strike"), area.X + cols[0], y, Muted);
-        Text(b, "CALL · " + T("terminal.col.premium"), area.X + cols[1], y, Muted);
-        Text(b, "Δ", area.X + cols[2], y, Muted);
+        Text(b, T("terminal.col.call-premium"), area.X + cols[1], y, Muted);
+        Text(b, T("terminal.col.delta"), area.X + cols[2], y, Muted);
         Text(b, T("terminal.col.position-short"), area.X + cols[3], y, Muted);
-        Text(b, "PUT · " + T("terminal.col.premium"), area.X + cols[5], y, Muted);
-        Text(b, "Δ", area.X + cols[6], y, Muted);
+        Text(b, T("terminal.col.put-premium"), area.X + cols[5], y, Muted);
+        Text(b, T("terminal.col.delta"), area.X + cols[6], y, Muted);
         Text(b, T("terminal.col.position-short"), area.X + cols[7], y, Muted);
         y += 34;
 
@@ -184,8 +184,8 @@ internal sealed partial class TerminalMenu
                 Text(b, Formatting.Number(I18n, Broker.OptionDelta(series, Date, Time), "0.00"), area.X + cols[baseCol + 1], y, Muted);
                 Text(b, position == 0 ? "-" : position.ToString("+#,0;-#,0"), area.X + cols[baseCol + 2], y);
                 int bx = area.X + cols[baseCol + 3];
-                Button(b, new Rectangle(bx, y - 6, 64, 38), T("terminal.options.buy-short"), () => OpenTicket(series.Id, TradeSide.Buy));
-                Button(b, new Rectangle(bx + 70, y - 6, 64, 38), T("terminal.options.write-short"), () => OpenTicket(series.Id, TradeSide.Sell));
+                Button(b, new Rectangle(bx, y - 6, 100, 38), T("terminal.options.buy-short"), () => OpenTicket(series.Id, TradeSide.Buy));
+                Button(b, new Rectangle(bx + 106, y - 6, 100, 38), T("terminal.options.write-short"), () => OpenTicket(series.Id, TradeSide.Sell));
             }
 
             y += 44;
@@ -194,7 +194,7 @@ internal sealed partial class TerminalMenu
         y += 6;
         Text(b, MarginSummary(), area.X, y, Broker.Derivatives.MarginCallDeadline is null ? Muted : Negative);
         y += 32;
-        foreach (string line in Wrap(T("terminal.options.help"), area.Width).Take(2))
+        foreach (string line in Wrap(T("terminal.options.help"), area.Width).Take(4))
         {
             Text(b, line, area.X, y, Muted);
             y += 28;

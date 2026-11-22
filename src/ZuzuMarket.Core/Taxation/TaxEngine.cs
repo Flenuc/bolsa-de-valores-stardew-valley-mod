@@ -94,7 +94,7 @@ public sealed class TaxEngine
     }
 
     /// <summary>Registra una venta (importe con IVA incluido si es Responsable Inscripto).</summary>
-    public JournalEntry? RecordSale(EconomicDate date, string activity, decimal gross, SaleChannel channel, string? debitAccount = null)
+    public JournalEntry? RecordSale(EconomicDate date, string activity, decimal gross, SaleChannel channel, string? debitAccount = null, EntryText? description = null)
     {
         if (gross <= 0)
         {
@@ -121,7 +121,7 @@ public sealed class TaxEngine
         }
 
         string key = channel == SaleChannel.Shipping ? "entry.sale-shipping" : "entry.sale-shop";
-        var text = new EntryText($"Venta ({activity})", key, Args(("activity", activity)));
+        EntryText text = description ?? new EntryText($"Venta ({activity})", key, Args(("activity", activity)));
         JournalEntry entry = _ledger.Post(Entity, date, text, EntrySources.Venta, lines.ToArray());
 
         _s.Current.NetSalesByActivity.TryGetValue(activity, out decimal previous);
