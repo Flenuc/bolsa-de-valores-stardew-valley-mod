@@ -6,8 +6,9 @@ con cauciones, letras, bonos, obligaciones negociables, acciones, futuros con en
 
 📄 Ver el [documento de diseño](docs/DISENO.md).
 
-**Estado:** Fase 0 (fundaciones) — calendario económico, contabilidad por partida doble, guardado por partida y
-comandos de consola. Todavía no cambia nada del juego. Requiere Stardew Valley 1.6 y SMAPI 4.x.
+**Estado:** Fase 1 — los 15 commodities tienen precio de mercado (oferta por tus ventas, estación, eventos e
+inflación) que reemplaza el precio de venta vanilla; las tiendas suben con la inflación; los eventos llegan como
+noticias y cartas. Requiere Stardew Valley 1.6 y SMAPI 4.x.
 
 ## Compilar
 
@@ -27,7 +28,9 @@ Si el juego no está en la ruta estándar de Steam/GOG, agregá `<GamePath>` en 
 | Opción | Por defecto | Descripción |
 |---|---|---|
 | `Difficulty` | `realista` | `casual`, `realista` o `argentina`. Se aplica a partidas nuevas; una partida ya iniciada conserva la suya. |
-| `DebugMode` | `false` | Habilita comandos de depuración como `zuzu_reset`. |
+| `NewsHud` | `true` | Muestra las noticias económicas como aviso en pantalla. |
+| `NewsLetters` | `true` | Manda cartas del Diario de Zuzu y del INDEF al buzón. |
+| `DebugMode` | `false` | Habilita comandos de depuración como `zuzu_reset` y `zuzu_event`. |
 
 ## Comandos de consola (SMAPI)
 
@@ -36,5 +39,9 @@ Si el juego no está en la ruta estándar de Steam/GOG, agregá `<GamePath>` en 
 | `zuzu_status` | Fecha económica, día hábil, período fiscal, dificultad, semilla y conciliación Caja ↔ oro |
 | `zuzu_ledger [n]` | Últimos `n` asientos del libro diario |
 | `zuzu_balance [entidad]` | Balance de sumas y saldos (`jugador` o `granja`) |
+| `zuzu_prices [commodity]` | Precios de mercado de hoy; con un id (p. ej. `chirivia`), detalle e historial |
+| `zuzu_inflation` | IPC-F, inflación mensual vigente e historial publicado por el INDEF |
+| `zuzu_events` | Eventos en curso y últimas noticias |
+| `zuzu_event <id>` | (solo `DebugMode`) hace empezar un evento hoy |
 | `zuzu_rng <stream> [n]` | Valores del generador determinista para ese stream y día |
 | `zuzu_reset confirm` | (solo `DebugMode`) reinicia la economía de la partida |

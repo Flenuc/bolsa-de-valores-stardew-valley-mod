@@ -1,17 +1,37 @@
+// Parámetros de mercado (todos por día, ver §6.2 de docs/DISENO.md):
+//   volatility     desvío estándar diario del ruido (0.03 = 3%)
+//   meanReversion  fracción del desvío que se corrige por día (0.05 ≈ vida media de 14 días)
+//   baseVolume     unidades que el mercado absorbe sin mover mucho el precio
+//   impact         sensibilidad del precio al stock acumulado por tus ventas
+//   stockDecay     fracción del stock que el mercado absorbe por día
+//   inSeasonFactor / offSeasonFactor  precio en estación de cosecha / fuera de estación
 [
-  { "id": "trigo",     "name": "Trigo",     "sector": "Granos",     "itemIds": ["262"], "harvestSeasons": ["Summer", "Fall"], "futuresContractSize": 500 },
-  { "id": "maiz",      "name": "Maíz",      "sector": "Granos",     "itemIds": ["270"], "harvestSeasons": ["Summer", "Fall"], "futuresContractSize": 500 },
-  { "id": "chirivia",  "name": "Chirivía",  "sector": "Hortalizas", "itemIds": ["24"],  "harvestSeasons": ["Spring"], "futuresContractSize": 100 },
-  { "id": "papa",      "name": "Papa",      "sector": "Hortalizas", "itemIds": ["192"], "harvestSeasons": ["Spring"], "futuresContractSize": 100 },
-  { "id": "tomate",    "name": "Tomate",    "sector": "Hortalizas", "itemIds": ["256"], "harvestSeasons": ["Summer"], "futuresContractSize": 100 },
-  { "id": "arandano",  "name": "Arándano",  "sector": "Frutas",     "itemIds": ["258"], "harvestSeasons": ["Summer"], "futuresContractSize": 200 },
-  { "id": "melon",     "name": "Melón",     "sector": "Frutas",     "itemIds": ["254"], "harvestSeasons": ["Summer"], "futuresContractSize": 50 },
-  { "id": "calabaza",  "name": "Calabaza",  "sector": "Hortalizas", "itemIds": ["276"], "harvestSeasons": ["Fall"],   "futuresContractSize": 50 },
-  { "id": "leche",     "name": "Leche",     "sector": "Animal",     "itemIds": ["184", "186"], "allYear": true, "futuresContractSize": 100 },
-  { "id": "huevo",     "name": "Huevo",     "sector": "Animal",     "itemIds": ["176", "180", "174", "182"], "allYear": true, "futuresContractSize": 200 },
-  { "id": "cobre",     "name": "Cobre",     "sector": "Mineria",    "itemIds": ["378"], "allYear": true, "futuresContractSize": 500 },
-  { "id": "hierro",    "name": "Hierro",    "sector": "Mineria",    "itemIds": ["380"], "allYear": true, "futuresContractSize": 500 },
-  { "id": "oro",       "name": "Oro",       "sector": "Mineria",    "itemIds": ["384"], "allYear": true, "futuresContractSize": 200 },
+  { "id": "trigo",    "name": "Trigo",    "sector": "Granos",     "itemIds": ["262"], "harvestSeasons": ["Summer", "Fall"], "futuresContractSize": 500,
+    "market": { "volatility": 0.025, "meanReversion": 0.05, "baseVolume": 600, "impact": 0.2, "stockDecay": 0.12, "inSeasonFactor": 0.95, "offSeasonFactor": 1.25 } },
+  { "id": "maiz",     "name": "Maíz",     "sector": "Granos",     "itemIds": ["270"], "harvestSeasons": ["Summer", "Fall"], "futuresContractSize": 500,
+    "market": { "volatility": 0.025, "meanReversion": 0.05, "baseVolume": 400, "impact": 0.2, "stockDecay": 0.12, "inSeasonFactor": 0.95, "offSeasonFactor": 1.25 } },
+  { "id": "chirivia", "name": "Chirivía", "sector": "Hortalizas", "itemIds": ["24"],  "harvestSeasons": ["Spring"], "futuresContractSize": 100,
+    "market": { "volatility": 0.03, "meanReversion": 0.05, "baseVolume": 400, "impact": 0.2, "stockDecay": 0.12, "inSeasonFactor": 0.95, "offSeasonFactor": 1.30 } },
+  { "id": "papa",     "name": "Papa",     "sector": "Hortalizas", "itemIds": ["192"], "harvestSeasons": ["Spring"], "futuresContractSize": 100,
+    "market": { "volatility": 0.03, "meanReversion": 0.05, "baseVolume": 300, "impact": 0.2, "stockDecay": 0.12, "inSeasonFactor": 0.95, "offSeasonFactor": 1.30 } },
+  { "id": "tomate",   "name": "Tomate",   "sector": "Hortalizas", "itemIds": ["256"], "harvestSeasons": ["Summer"], "futuresContractSize": 100,
+    "market": { "volatility": 0.03, "meanReversion": 0.05, "baseVolume": 300, "impact": 0.2, "stockDecay": 0.12, "inSeasonFactor": 0.95, "offSeasonFactor": 1.30 } },
+  { "id": "arandano", "name": "Arándano", "sector": "Frutas",     "itemIds": ["258"], "harvestSeasons": ["Summer"], "futuresContractSize": 200,
+    "market": { "volatility": 0.03, "meanReversion": 0.05, "baseVolume": 600, "impact": 0.2, "stockDecay": 0.12, "inSeasonFactor": 0.95, "offSeasonFactor": 1.35 } },
+  { "id": "melon",    "name": "Melón",    "sector": "Frutas",     "itemIds": ["254"], "harvestSeasons": ["Summer"], "futuresContractSize": 50,
+    "market": { "volatility": 0.03, "meanReversion": 0.05, "baseVolume": 100, "impact": 0.2, "stockDecay": 0.12, "inSeasonFactor": 0.95, "offSeasonFactor": 1.35 } },
+  { "id": "calabaza", "name": "Calabaza", "sector": "Hortalizas", "itemIds": ["276"], "harvestSeasons": ["Fall"],   "futuresContractSize": 50,
+    "market": { "volatility": 0.03, "meanReversion": 0.05, "baseVolume": 150, "impact": 0.2, "stockDecay": 0.12, "inSeasonFactor": 0.95, "offSeasonFactor": 1.30 } },
+  { "id": "leche",    "name": "Leche",    "sector": "Animal",     "itemIds": ["184", "186"], "allYear": true, "futuresContractSize": 100,
+    "market": { "volatility": 0.02, "meanReversion": 0.06, "baseVolume": 200, "impact": 0.15, "stockDecay": 0.15 } },
+  { "id": "huevo",    "name": "Huevo",    "sector": "Animal",     "itemIds": ["176", "180", "174", "182"], "allYear": true, "futuresContractSize": 200,
+    "market": { "volatility": 0.02, "meanReversion": 0.06, "baseVolume": 300, "impact": 0.15, "stockDecay": 0.15 } },
+  { "id": "cobre",    "name": "Cobre",    "sector": "Mineria",    "itemIds": ["378"], "allYear": true, "futuresContractSize": 500,
+    "market": { "volatility": 0.015, "meanReversion": 0.03, "baseVolume": 800, "impact": 0.15, "stockDecay": 0.08 } },
+  { "id": "hierro",   "name": "Hierro",   "sector": "Mineria",    "itemIds": ["380"], "allYear": true, "futuresContractSize": 500,
+    "market": { "volatility": 0.015, "meanReversion": 0.03, "baseVolume": 600, "impact": 0.15, "stockDecay": 0.08 } },
+  { "id": "oro",      "name": "Oro",      "sector": "Mineria",    "itemIds": ["384"], "allYear": true, "futuresContractSize": 200,
+    "market": { "volatility": 0.015, "meanReversion": 0.03, "baseVolume": 300, "impact": 0.15, "stockDecay": 0.08 } },
   {
     "id": "pescado",
     "name": "Canasta de pescado",
@@ -19,7 +39,9 @@
     "priceMode": "Index",
     "itemIds": ["131", "129", "130", "147", "142", "145", "132", "136"],
     "allYear": true,
-    "futuresContractSize": 50
+    "futuresContractSize": 50,
+    "market": { "volatility": 0.05, "meanReversion": 0.08, "baseVolume": 150, "impact": 0.2, "stockDecay": 0.15 }
   },
-  { "id": "vino",      "name": "Vino",      "sector": "Artesanal",  "priceMode": "Index", "itemIds": ["348"], "allYear": true, "futuresContractSize": 50 }
+  { "id": "vino",     "name": "Vino",     "sector": "Artesanal",  "priceMode": "Index", "itemIds": ["348"], "allYear": true, "futuresContractSize": 50,
+    "market": { "volatility": 0.025, "meanReversion": 0.04, "baseVolume": 60, "impact": 0.2, "stockDecay": 0.10 } }
 ]

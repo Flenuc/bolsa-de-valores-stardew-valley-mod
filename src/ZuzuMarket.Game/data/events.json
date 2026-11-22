@@ -1,0 +1,107 @@
+// Eventos económicos (§7 de docs/DISENO.md). Los textos están en i18n: event.<id>.headline y event.<id>.letter.
+//   tone          Positive / Negative / Neutral para el granjero (los Negative se escalan con la dificultad)
+//   seasons       estaciones en que puede ocurrir (vacío = cualquiera)
+//   weather       clima del día: Sun, Rain, Storm, Snow, Wind (vacío = cualquiera)
+//   fixedDate     día fijo del año (p. ej. un festival)
+//   probability   probabilidad diaria de empezar cuando es elegible
+//   effects       target: id de commodity, "sector:<Sector>" o "all"; priceImpact logarítmico (0.2 ≈ +22%)
+//                 profile: Constant (igual todo el evento) o Decay (baja hasta cero al final)
+//   inflationShock  se suma a la inflación mensual en curso
+[
+  {
+    "id": "sequia", "name": "Sequía en el Valle", "tone": "Positive",
+    "seasons": ["Summer"], "weather": ["Sun"], "probability": 0.03, "durationDays": 10, "cooldownDays": 30,
+    "effects": [
+      { "target": "sector:Hortalizas", "priceImpact": 0.20, "profile": "Constant" },
+      { "target": "sector:Frutas", "priceImpact": 0.15, "profile": "Constant" },
+      { "target": "sector:Granos", "priceImpact": 0.15, "profile": "Constant" }
+    ],
+    "letter": true
+  },
+  {
+    "id": "lluvias", "name": "Lluvias abundantes", "tone": "Negative",
+    "seasons": ["Spring", "Summer"], "weather": ["Rain", "Storm"], "probability": 0.04, "durationDays": 7, "cooldownDays": 20,
+    "effects": [
+      { "target": "sector:Hortalizas", "priceImpact": -0.12, "profile": "Decay" },
+      { "target": "sector:Frutas", "priceImpact": -0.10, "profile": "Decay" }
+    ]
+  },
+  {
+    "id": "langostas", "name": "Plaga de langostas", "tone": "Positive",
+    "seasons": ["Summer", "Fall"], "probability": 0.015, "durationDays": 14, "cooldownDays": 60, "minYear": 1,
+    "effects": [
+      { "target": "trigo", "priceImpact": 0.35, "profile": "Decay" },
+      { "target": "maiz", "priceImpact": 0.30, "profile": "Decay" }
+    ],
+    "letter": true
+  },
+  {
+    "id": "cosecha-gotoro", "name": "Cosecha récord en Gotoro", "tone": "Negative",
+    "seasons": ["Summer", "Fall"], "probability": 0.015, "durationDays": 21, "cooldownDays": 56,
+    "effects": [
+      { "target": "sector:Granos", "priceImpact": -0.25, "profile": "Decay" }
+    ],
+    "letter": true
+  },
+  {
+    "id": "helada", "name": "Helada temprana", "tone": "Positive",
+    "seasons": ["Fall"], "probability": 0.02, "durationDays": 10, "cooldownDays": 112,
+    "effects": [
+      { "target": "calabaza", "priceImpact": 0.30, "profile": "Constant" },
+      { "target": "sector:Granos", "priceImpact": 0.10, "profile": "Constant" }
+    ]
+  },
+  {
+    "id": "feria-huevo", "name": "Demanda por la Feria del Huevo", "tone": "Positive",
+    "fixedDate": { "season": "Spring", "day": 11 }, "probability": 1.0, "durationDays": 4,
+    "effects": [
+      { "target": "huevo", "priceImpact": 0.30, "profile": "Constant" }
+    ]
+  },
+  {
+    "id": "ola-calor", "name": "Ola de calor", "tone": "Positive",
+    "seasons": ["Summer"], "weather": ["Sun"], "probability": 0.03, "durationDays": 6, "cooldownDays": 20,
+    "effects": [
+      { "target": "leche", "priceImpact": 0.18, "profile": "Constant" },
+      { "target": "huevo", "priceImpact": 0.08, "profile": "Constant" }
+    ]
+  },
+  {
+    "id": "huelga-minera", "name": "Huelga minera en Calico", "tone": "Positive",
+    "probability": 0.01, "durationDays": 12, "cooldownDays": 56,
+    "effects": [
+      { "target": "sector:Mineria", "priceImpact": 0.25, "profile": "Constant" }
+    ],
+    "letter": true
+  },
+  {
+    "id": "nueva-veta", "name": "Nueva veta en Calico", "tone": "Negative",
+    "probability": 0.01, "durationDays": 28, "cooldownDays": 56,
+    "effects": [
+      { "target": "sector:Mineria", "priceImpact": -0.20, "profile": "Decay" }
+    ],
+    "letter": true
+  },
+  {
+    "id": "marea-roja", "name": "Marea roja en el Mar de las Gemas", "tone": "Positive",
+    "seasons": ["Summer", "Fall"], "probability": 0.015, "durationDays": 10, "cooldownDays": 40,
+    "effects": [
+      { "target": "pescado", "priceImpact": 0.30, "profile": "Decay" }
+    ]
+  },
+  {
+    "id": "moda-vino", "name": "Moda del vino en Zuzu City", "tone": "Positive",
+    "probability": 0.01, "durationDays": 21, "cooldownDays": 84, "minYear": 1,
+    "effects": [
+      { "target": "vino", "priceImpact": 0.25, "profile": "Decay" }
+    ],
+    "letter": true
+  },
+  {
+    "id": "emision", "name": "Emisión monetaria del BCRF", "tone": "Negative",
+    "probability": 0.008, "durationDays": 28, "cooldownDays": 84,
+    "effects": [],
+    "inflationShock": 0.02,
+    "letter": true
+  }
+]

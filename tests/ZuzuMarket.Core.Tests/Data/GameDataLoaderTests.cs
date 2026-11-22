@@ -107,6 +107,55 @@ public class GameDataLoaderTests
     public void MissingDirectory_IsReported()
     {
         DataLoadResult result = GameDataLoader.LoadFromDirectory(Path.Combine(Path.GetTempPath(), "zuzu-no-existe"));
-        Assert.Equal(3, result.Errors.Count);
+        Assert.Equal(4, result.Errors.Count);
+    }
+
+    [Fact]
+    public void RealEvents_LoadAndPointToExistingTargets()
+    {
+        GameData data = TestData.Real;
+        Assert.True(data.Events.Count >= 12);
+        Assert.NotNull(data.FindEvent("sequia"));
+        Assert.Equal(EventTone.Negative, data.FindEvent("emision")!.Tone);
+        Assert.Equal(0.02, data.FindEvent("emision")!.InflationShock, 10);
+    }
+
+    [Fact]
+    public void InvalidEvents_AreReported()
+    {
+        const string events = """
+            [
+              { "id": "a", "probability": 2, "durationDays": 0, "effects": [ { "target": "banana", "priceImpact": 0.1 } ] },
+              { "id": "b", "probability": 0.1, "durationDays": 3, "effects": [ { "target": "sector:Espacial", "priceImpact": 0.1 } ] },
+              { "id": "b", "probability": 0.1, "durationDays": 3, "effects": [] },
+              { "id": "c", "probability": 0.1, "durationDays": 3, "fixedDate": { "season": "Spring", "day": 40 }, "effects": [ { "target": "all", "priceImpact": 3 } ] }
+            ]
+            """;
+
+        DataLoadResult result = GameDataLoader.LoadFromJson(Accounts, Commodities, Difficulties, events);
+        Assert.False(result.Success);
+        Assert.Contains(result.Errors, e => e.Contains("a tiene una probabilidad"));
+        Assert.Contains(result.Errors, e => e.Contains("a necesita durationDays"));
+        Assert.Contains(result.Errors, e => e.Contains("\"banana\""));
+        Assert.Contains(result.Errors, e => e.Contains("\"sector:Espacial\""));
+        Assert.Contains(result.Errors, e => e.Contains("duplicado b"));
+        Assert.Contains(result.Errors, e => e.Contains("b no tiene efectos"));
+        Assert.Contains(result.Errors, e => e.Contains("c tiene una fecha fija"));
+        Assert.Contains(result.Errors, e => e.Contains("desmedido"));
+    }
+
+    [Fact]
+    public void InvalidMarketParameters_AreReported()
+    {
+        const string commodities = """
+            [ { "id": "x", "name": "X", "sector": "S", "itemIds": ["1"], "allYear": true, "futuresContractSize": 1,
+                "market": { "volatility": 0.9, "meanReversion": 0, "stockDecay": 1, "baseVolume": 0 } } ]
+            """;
+
+        DataLoadResult result = GameDataLoader.LoadFromJson(Accounts, commodities, Difficulties);
+        Assert.Contains(result.Errors, e => e.Contains("volatility"));
+        Assert.Contains(result.Errors, e => e.Contains("meanReversion"));
+        Assert.Contains(result.Errors, e => e.Contains("stockDecay"));
+        Assert.Contains(result.Errors, e => e.Contains("baseVolume"));
     }
 }

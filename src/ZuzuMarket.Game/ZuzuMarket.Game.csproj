@@ -7,6 +7,8 @@
     <!-- ModBuildConfig: nombre de la carpeta en Mods/ y zip solo en Release. -->
     <ModFolderName>ZuzuMarket</ModFolderName>
     <EnableModZip Condition="'$(Configuration)' != 'Release'">false</EnableModZip>
+    <!-- Referencia a Harmony (incluido en SMAPI) para parchear los precios de venta. -->
+    <EnableHarmony>true</EnableHarmony>
   </PropertyGroup>
 
   <ItemGroup>

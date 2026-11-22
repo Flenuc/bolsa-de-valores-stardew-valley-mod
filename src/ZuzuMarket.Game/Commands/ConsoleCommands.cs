@@ -1,11 +1,17 @@
 using System.Globalization;
 using System.Text;
 using StardewModdingAPI;
+using StardewValley;
+using ZuzuMarket.Core.Commodities;
+using ZuzuMarket.Core.Data;
+using ZuzuMarket.Core.Events;
 using ZuzuMarket.Core.Ledger;
+using ZuzuMarket.Core.Macro;
 using ZuzuMarket.Core.Random;
 using ZuzuMarket.Core.Simulation;
 using ZuzuMarket.Core.Time;
 using ZuzuMarket.Game.Bridges;
+using ZuzuMarket.Game.Content;
 
 namespace ZuzuMarket.Game.Commands;
 
@@ -17,9 +23,11 @@ internal sealed class ConsoleCommands
     private readonly ModConfig _config;
     private readonly Func<EconomySimulation?> _getSimulation;
     private readonly Action _reset;
+    private readonly NewsService _news;
 
-    public ConsoleCommands(IModHelper helper, IMonitor monitor, ModConfig config, Func<EconomySimulation?> getSimulation, Action reset)
+    public ConsoleCommands(IModHelper helper, IMonitor monitor, ModConfig config, Func<EconomySimulation?> getSimulation, Action reset, NewsService news)
     {
+        _news = news;
         _helper = helper;
         _monitor = monitor;
         _config = config;
@@ -36,6 +44,10 @@ internal sealed class ConsoleCommands
         _helper.ConsoleCommands.Add("zuzu_balance", I18n.Get("cmd.balance.help"), WithSimulation(Balance));
         _helper.ConsoleCommands.Add("zuzu_rng", I18n.Get("cmd.rng.help"), WithSimulation(Rng));
         _helper.ConsoleCommands.Add("zuzu_reset", I18n.Get("cmd.reset.help"), WithSimulation(Reset));
+        _helper.ConsoleCommands.Add("zuzu_prices", I18n.Get("cmd.prices.help"), WithSimulation(Prices));
+        _helper.ConsoleCommands.Add("zuzu_inflation", I18n.Get("cmd.inflation.help"), WithSimulation(InflationCmd));
+        _helper.ConsoleCommands.Add("zuzu_events", I18n.Get("cmd.events.help"), WithSimulation(EventsCmd));
+        _helper.ConsoleCommands.Add("zuzu_event", I18n.Get("cmd.event.help"), WithSimulation(ForceEvent));
     }
 
     private Action<string, string[]> WithSimulation(Action<EconomySimulation, string[]> action) => (_, args) =>
@@ -151,7 +163,7 @@ internal sealed class ConsoleCommands
     {
         if (!_config.DebugMode)
         {
-            _monitor.Log(I18n.Get("cmd.reset.debug-only"), LogLevel.Warn);
+            _monitor.Log(I18n.Get("cmd.debug-only", new { command = "zuzu_reset" }), LogLevel.Warn);
             return;
         }
 
@@ -163,6 +175,152 @@ internal sealed class ConsoleCommands
 
         _reset();
         _monitor.Log(I18n.Get("cmd.reset.done"), LogLevel.Info);
+    }
+
+    private void Prices(EconomySimulation sim, string[] args)
+    {
+        if (args.Length > 0)
+        {
+            CommodityDefinition? commodity = sim.Data.FindCommodity(args[0]);
+            if (commodity is null)
+            {
+                _monitor.Log(I18n.Get("cmd.prices.unknown", new { id = args[0], ids = string.Join(", ", sim.Data.Commodities.Select(c => c.Id)) }), LogLevel.Warn);
+                return;
+            }
+
+            PriceDetail(sim, commodity);
+            return;
+        }
+
+        var sb = new StringBuilder();
+        sb.AppendLine(I18n.Get("cmd.prices.title", new { date = GameDateBridge.Format(I18n, sim.CurrentDate), ipc = Formatting.Number(I18n, sim.Inflation.Index) }));
+        sb.AppendLine($"{I18n.Get("cmd.prices.col.commodity"),-22} {I18n.Get("cmd.prices.col.price"),10} {I18n.Get("cmd.prices.col.change"),9} {I18n.Get("cmd.prices.col.real"),8} {I18n.Get("cmd.prices.col.stock"),8}");
+        foreach (CommodityDefinition c in sim.Data.Commodities)
+        {
+            CommodityState s = sim.Market.Get(c.Id);
+            string price = ReferencePrice(c) is int vanilla ? Formatting.Gold(I18n, vanilla * s.Multiplier) : "-";
+            sb.AppendLine($"{CommodityName(c),-22} {price,10} {Formatting.Percent(I18n, s.DailyChange, signed: true),9} {Formatting.Number(I18n, s.RealMultiplier, "0.00"),8} {s.Stock,8:0}");
+        }
+
+        sb.Append(I18n.Get("cmd.prices.footer"));
+        _monitor.Log(sb.ToString(), LogLevel.Info);
+    }
+
+    private void PriceDetail(EconomySimulation sim, CommodityDefinition c)
+    {
+        CommodityState s = sim.Market.Get(c.Id);
+        var sb = new StringBuilder();
+        sb.AppendLine($"=== {CommodityName(c)} ({c.Id}) · {c.Sector} ===");
+        if (ReferencePrice(c) is int vanilla)
+        {
+            sb.AppendLine(I18n.Get("cmd.prices.detail.price", new { vanilla = Formatting.Gold(I18n, vanilla), price = Formatting.Gold(I18n, vanilla * s.Multiplier) }));
+        }
+
+        sb.AppendLine(I18n.Get("cmd.prices.detail.multipliers", new
+        {
+            total = Formatting.Number(I18n, s.Multiplier),
+            real = Formatting.Number(I18n, s.RealMultiplier),
+            ipc = Formatting.Number(I18n, sim.Inflation.Index),
+            season = Formatting.Number(I18n, c.SeasonFactor(sim.CurrentDate.Season), "0.00"),
+        }));
+        sb.AppendLine(I18n.Get("cmd.prices.detail.supply", new { stock = s.Stock.ToString("0"), pending = s.PendingSales.ToString("0") }));
+        sb.AppendLine(I18n.Get("cmd.prices.detail.history"));
+        foreach (PricePoint p in s.History.Skip(Math.Max(0, s.History.Count - 10)))
+        {
+            sb.AppendLine($"  {GameDateBridge.Format(I18n, p.Date),-28} {Formatting.Number(I18n, p.Multiplier),8}   {I18n.Get("cmd.prices.detail.sold", new { units = p.UnitsSold.ToString("0") })}");
+        }
+
+        _monitor.Log(sb.ToString().TrimEnd(), LogLevel.Info);
+    }
+
+    private void InflationCmd(EconomySimulation sim, string[] args)
+    {
+        InflationState state = sim.Inflation.State;
+        var sb = new StringBuilder();
+        sb.AppendLine(I18n.Get("cmd.inflation.title"));
+        sb.AppendLine(I18n.Get("cmd.inflation.current", new
+        {
+            ipc = Formatting.Number(I18n, state.Index),
+            rate = Formatting.Percent(I18n, state.PeriodRate),
+            accumulated = Formatting.Percent(I18n, state.Index - 1),
+        }));
+        if (state.History.Count == 0)
+        {
+            sb.Append(I18n.Get("cmd.inflation.no-history"));
+        }
+
+        foreach (InflationRecord r in state.History)
+        {
+            sb.AppendLine($"  {GameDateBridge.Format(I18n, r.Period),-24} {Formatting.Percent(I18n, r.Rate),8}   IPC {Formatting.Number(I18n, r.IndexAtClose)}");
+        }
+
+        _monitor.Log(sb.ToString().TrimEnd(), LogLevel.Info);
+    }
+
+    private void EventsCmd(EconomySimulation sim, string[] args)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine(I18n.Get("cmd.events.active"));
+        if (sim.Events.Active.Count == 0)
+        {
+            sb.AppendLine("  " + I18n.Get("cmd.events.none"));
+        }
+
+        foreach (ActiveEvent a in sim.Events.Active)
+        {
+            sb.AppendLine($"  [{a.EventId}] {I18n.Get($"event.{a.EventId}.headline")} — {I18n.Get("cmd.events.until", new { date = GameDateBridge.Format(I18n, a.End) })}");
+        }
+
+        sb.AppendLine(I18n.Get("cmd.events.news"));
+        foreach (NewsItem n in sim.Events.State.News.Skip(Math.Max(0, sim.Events.State.News.Count - 10)))
+        {
+            string text = n.Kind == NewsKind.Event
+                ? I18n.Get($"event.{n.Key}.headline")
+                : I18n.Get("news.inflation.short", new { rate = Formatting.Percent(I18n, n.Value) });
+            sb.AppendLine($"  {GameDateBridge.Format(I18n, n.Date),-28} {text}");
+        }
+
+        if (_config.DebugMode)
+        {
+            sb.Append(I18n.Get("cmd.events.ids", new { ids = string.Join(", ", sim.Data.Events.Select(e => e.Id)) }));
+        }
+
+        _monitor.Log(sb.ToString().TrimEnd(), LogLevel.Info);
+    }
+
+    private void ForceEvent(EconomySimulation sim, string[] args)
+    {
+        if (!_config.DebugMode)
+        {
+            _monitor.Log(I18n.Get("cmd.debug-only", new { command = "zuzu_event" }), LogLevel.Warn);
+            return;
+        }
+
+        if (args.Length == 0)
+        {
+            _monitor.Log(I18n.Get("cmd.event.usage", new { ids = string.Join(", ", sim.Data.Events.Select(e => e.Id)) }), LogLevel.Info);
+            return;
+        }
+
+        EventDefinition? e = sim.ForceEvent(args[0]);
+        if (e is null)
+        {
+            _monitor.Log(I18n.Get("cmd.event.unknown", new { id = args[0] }), LogLevel.Warn);
+            return;
+        }
+
+        _news.Announce(e);
+        _monitor.Log(I18n.Get("cmd.event.done", new { id = e.Id }), LogLevel.Info);
+    }
+
+    /// <summary>Precio de venta vanilla del primer objeto del commodity (calidad normal, sin profesiones).</summary>
+    private static int? ReferencePrice(CommodityDefinition c) =>
+        Game1.objectData.TryGetValue(c.ItemIds[0], out var data) ? data.Price : null;
+
+    private string CommodityName(CommodityDefinition c)
+    {
+        Translation name = I18n.Get($"commodity.{c.Id}");
+        return name.HasValue() ? name : c.Name;
     }
 
     private static string Money(decimal amount) => amount.ToString("#,0.00", CultureInfo.InvariantCulture) + "g";

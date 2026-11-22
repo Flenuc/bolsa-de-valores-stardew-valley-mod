@@ -1,5 +1,8 @@
+using ZuzuMarket.Core.Commodities;
 using ZuzuMarket.Core.Data;
+using ZuzuMarket.Core.Events;
 using ZuzuMarket.Core.Ledger;
+using ZuzuMarket.Core.Macro;
 using ZuzuMarket.Core.Random;
 using ZuzuMarket.Core.State;
 using ZuzuMarket.Core.Time;
@@ -27,20 +30,25 @@ public sealed class NullSimulationLog : ISimulationLog
     }
 }
 
-/// <summary>Qué pasó al empezar un día (para que el juego reaccione).</summary>
+/// <summary>Qué pasó al empezar un día (para que el juego muestre noticias y reaccione).</summary>
 public sealed record DayStartedInfo(
     EconomicDate Date,
     bool IsBusinessDay,
     bool IsNewFiscalPeriod,
     bool IsNewFiscalYear,
-    int DaysAdvanced);
+    int DaysAdvanced,
+    IReadOnlyList<EventDefinition> NewEvents,
+    IReadOnlyList<InflationRecord> PublishedInflation);
 
 /// <summary>
-/// Orquestador: avanza el mundo económico. En la Fase 0 solo lleva la fecha y la contabilidad;
-/// las fases siguientes agregan macro, eventos, mercados e impuestos en estos mismos ganchos.
+/// Orquestador: avanza el mundo económico un día por vez.
+/// Orden de cada día: período fiscal (inflación) → eventos → IPC → precios.
 /// </summary>
 public sealed class EconomySimulation
 {
+    public const string InflationStream = "inflacion";
+    public const string EventsStream = "eventos";
+
     private readonly WorldState _state;
     private readonly ISimulationLog _log;
 
@@ -50,11 +58,28 @@ public sealed class EconomySimulation
         _state = state;
         Ledger = ledger;
         _log = log;
+        Inflation = new InflationModel(state.Inflation);
+        Market = new CommodityMarket(data, state.Commodities);
+        Events = new EventEngine(data, state.Events);
+
+        if (!Inflation.HasStarted)
+        {
+            // Partida nueva, o partida del esquema 1 (Fase 0) que recién migra.
+            Inflation.StartPeriod(state.CurrentDate.FiscalPeriod, Difficulty, RandomStreams.For(state.Seed, state.CurrentDate, InflationStream));
+        }
+
+        RecalculatePrices();
     }
 
     public GameData Data { get; }
 
     public GeneralLedger Ledger { get; }
+
+    public InflationModel Inflation { get; }
+
+    public CommodityMarket Market { get; }
+
+    public EventEngine Events { get; }
 
     public ulong Seed => _state.Seed;
 
@@ -123,32 +148,67 @@ public sealed class EconomySimulation
 
     public DeterministicRandom Random(string streamName) => RandomStreams.For(_state.Seed, _state.CurrentDate, streamName);
 
-    /// <summary>Se llama al empezar cada día del juego.</summary>
-    public DayStartedInfo OnDayStarted(EconomicDate date)
+    /// <summary>
+    /// Se llama al empezar cada día del juego. Simula un paso por cada día transcurrido; los días salteados
+    /// se simulan con clima soleado.
+    /// </summary>
+    public DayStartedInfo OnDayStarted(EconomicDate date, Weather weather = Weather.Sun)
     {
         EconomicDate previous = _state.CurrentDate;
         int daysAdvanced = previous.DaysUntil(date);
+        var newEvents = new List<EventDefinition>();
+        var published = new List<InflationRecord>();
+
         if (daysAdvanced < 0)
         {
-            _log.Warn($"La fecha del juego ({date}) es anterior a la última fecha simulada ({previous}). Se toma la fecha del juego.");
+            _log.Warn($"La fecha del juego ({date}) es anterior a la última fecha simulada ({previous}). Se toma la fecha del juego sin simular.");
+            _state.CurrentDate = date;
         }
-        else if (daysAdvanced > 1)
+        else
         {
-            _log.Warn($"Se saltearon {daysAdvanced - 1} día(s) entre {previous} y {date}.");
+            if (daysAdvanced > 1)
+            {
+                _log.Warn($"Se saltearon {daysAdvanced - 1} día(s) entre {previous} y {date}; se simulan igual.");
+            }
+
+            for (int i = 1; i <= daysAdvanced; i++)
+            {
+                EconomicDate day = previous.AddDays(i);
+                StepDay(day, i == daysAdvanced ? weather : Weather.Sun, newEvents, published);
+            }
         }
 
-        _state.CurrentDate = date;
         bool newPeriod = daysAdvanced > 0 && date.FiscalPeriod != previous.FiscalPeriod;
         bool newYear = daysAdvanced > 0 && date.Year != previous.Year;
-
-        // Fases siguientes: macro (inflación, tasa), eventos del día, apertura de mercado.
-        return new DayStartedInfo(date, date.IsBusinessDay, newPeriod, newYear, daysAdvanced);
+        return new DayStartedInfo(date, date.IsBusinessDay, newPeriod, newYear, daysAdvanced, newEvents, published);
     }
 
     /// <summary>Se llama al terminar el día, antes de guardar.</summary>
     public void OnDayEnding()
     {
         // Fases siguientes: cierre de mercado, liquidaciones, devengamientos, impuestos, vencimientos.
+    }
+
+    /// <summary>Registra unidades vendidas por el jugador (cajón de envíos). Impactan en el precio del día siguiente.</summary>
+    public bool RecordShipment(string itemId, int units) => Market.RecordShipment(itemId, units);
+
+    /// <summary>Hace empezar un evento hoy y recalcula los precios (comando de debug).</summary>
+    public EventDefinition? ForceEvent(string eventId)
+    {
+        EventDefinition? e = Data.FindEvent(eventId);
+        if (e is null)
+        {
+            return null;
+        }
+
+        Events.Start(e, _state.CurrentDate);
+        if (e.InflationShock != 0)
+        {
+            Inflation.AddShock(e.InflationShock);
+        }
+
+        RecalculatePrices();
+        return e;
     }
 
     /// <summary>
@@ -177,5 +237,42 @@ public sealed class EconomySimulation
             };
 
         return Ledger.Post(LedgerEntities.Jugador, _state.CurrentDate, description, EntrySources.Conciliacion, lines);
+    }
+
+    private void StepDay(EconomicDate day, Weather weather, List<EventDefinition> newEvents, List<InflationRecord> published)
+    {
+        _state.CurrentDate = day;
+        DifficultyDefinition difficulty = Difficulty;
+
+        if (_state.Inflation.CurrentPeriod != day.FiscalPeriod)
+        {
+            InflationRecord? record = Inflation.ClosePeriod();
+            if (record is not null)
+            {
+                published.Add(record);
+                Events.AddNews(new NewsItem(day, NewsKind.Inflation, record.Period.ToString(), record.Rate));
+            }
+
+            Inflation.StartPeriod(day.FiscalPeriod, difficulty, RandomStreams.For(_state.Seed, day, InflationStream));
+        }
+
+        Events.Expire(day);
+        foreach (EventDefinition e in Events.Roll(day, weather, difficulty, RandomStreams.For(_state.Seed, day, EventsStream)))
+        {
+            newEvents.Add(e);
+            if (e.InflationShock != 0)
+            {
+                Inflation.AddShock(e.InflationShock);
+            }
+        }
+
+        Inflation.AdvanceDay();
+        Market.Step(day, Inflation.Index, (double)difficulty.PriceVolatility, _state.Seed, c => Events.PriceImpact(c, day));
+    }
+
+    private void RecalculatePrices()
+    {
+        EconomicDate today = _state.CurrentDate;
+        Market.Recalculate(today, Inflation.Index, c => Events.PriceImpact(c, today));
     }
 }

@@ -1,3 +1,4 @@
+using HarmonyLib;
 using StardewModdingAPI;
 using StardewModdingAPI.Events;
 using StardewValley;
@@ -6,6 +7,8 @@ using ZuzuMarket.Core.Simulation;
 using ZuzuMarket.Core.State;
 using ZuzuMarket.Game.Bridges;
 using ZuzuMarket.Game.Commands;
+using ZuzuMarket.Game.Content;
+using ZuzuMarket.Game.Hooks;
 using ZuzuMarket.Game.Persistence;
 
 namespace ZuzuMarket.Game;
@@ -19,12 +22,22 @@ internal sealed class ModEntry : Mod
     private GameData? _data;
     private SaveDataStore? _store;
     private SmapiSimulationLog? _log;
-
-    /// <summary>Simulación de la partida cargada (null en el menú principal o si no se pudo cargar).</summary>
+    private NewsService? _news;
     private EconomySimulation? _simulation;
 
     /// <summary>Si el estado guardado estaba dañado, no se guarda nada encima para no perderlo.</summary>
     private bool _loadFailed;
+
+    /// <summary>Simulación de la partida cargada (null en el menú principal o si no se pudo cargar).</summary>
+    private EconomySimulation? Simulation
+    {
+        get => _simulation;
+        set
+        {
+            _simulation = value;
+            PriceService.Simulation = value;
+        }
+    }
 
     public override void Entry(IModHelper helper)
     {
@@ -56,23 +69,30 @@ internal sealed class ModEntry : Mod
                 accounts = _data.Chart.Count,
                 commodities = _data.Commodities.Count,
                 difficulties = _data.Difficulties.Count,
+                events = _data.Events.Count,
             }),
             LogLevel.Debug);
 
         _store = new SaveDataStore(helper.Data);
+        _news = new NewsService(helper, ModManifest, _config, _data, () => Simulation);
+
+        var harmony = new Harmony(ModManifest.UniqueID);
+        SellPricePatch.Apply(harmony, Monitor);
 
         helper.Events.GameLoop.SaveLoaded += OnSaveLoaded;
         helper.Events.GameLoop.DayStarted += OnDayStarted;
         helper.Events.GameLoop.DayEnding += OnDayEnding;
         helper.Events.GameLoop.Saving += OnSaving;
         helper.Events.GameLoop.ReturnedToTitle += OnReturnedToTitle;
+        helper.Events.Display.MenuChanged += ShopInflation.OnMenuChanged;
+        helper.Events.Content.AssetRequested += _news.OnAssetRequested;
 
-        new ConsoleCommands(helper, Monitor, _config, () => _simulation, ResetSimulation).Register();
+        new ConsoleCommands(helper, Monitor, _config, () => Simulation, ResetSimulation, _news).Register();
     }
 
     private void OnSaveLoaded(object? sender, SaveLoadedEventArgs e)
     {
-        _simulation = null;
+        Simulation = null;
         _loadFailed = false;
 
         if (!Context.IsMainPlayer)
@@ -86,23 +106,23 @@ internal sealed class ModEntry : Mod
             WorldState? saved = _store!.Load();
             if (saved is not null)
             {
-                _simulation = EconomySimulation.Load(_data!, saved, _log);
+                Simulation = EconomySimulation.Load(_data!, saved, _log);
                 Monitor.Log(Helper.Translation.Get("log.state-loaded", new
                 {
-                    date = GameDateBridge.Format(Helper.Translation, _simulation.CurrentDate),
-                    entries = _simulation.Ledger.Entries.Count,
+                    date = GameDateBridge.Format(Helper.Translation, Simulation.CurrentDate),
+                    entries = Simulation.Ledger.Entries.Count,
                 }), LogLevel.Info);
             }
             else
             {
-                _simulation = CreateSimulation();
-                Monitor.Log(Helper.Translation.Get("log.state-created", new { difficulty = _simulation.Difficulty.Name }), LogLevel.Info);
+                Simulation = CreateSimulation();
+                Monitor.Log(Helper.Translation.Get("log.state-created", new { difficulty = Simulation.Difficulty.Name }), LogLevel.Info);
             }
         }
         catch (Exception ex)
         {
             _loadFailed = true;
-            _simulation = null;
+            Simulation = null;
             Monitor.Log(Helper.Translation.Get("log.state-failed"), LogLevel.Error);
             Monitor.Log(ex.ToString(), LogLevel.Error);
         }
@@ -110,13 +130,14 @@ internal sealed class ModEntry : Mod
 
     private void OnDayStarted(object? sender, DayStartedEventArgs e)
     {
-        if (_simulation is null)
+        if (Simulation is null)
         {
             return;
         }
 
-        DayStartedInfo info = _simulation.OnDayStarted(GameDateBridge.CurrentDate());
-        MoneyBridge.Reconcile(_simulation, Helper.Translation.Get("entry.reconcile-day-start"));
+        DayStartedInfo info = Simulation.OnDayStarted(GameDateBridge.CurrentDate(), WeatherBridge.Today());
+        MoneyBridge.Reconcile(Simulation, Helper.Translation.Get("entry.reconcile-day-start"));
+        _news!.Publish(info);
 
         if (info.IsNewFiscalPeriod)
         {
@@ -126,23 +147,34 @@ internal sealed class ModEntry : Mod
 
     private void OnDayEnding(object? sender, DayEndingEventArgs e)
     {
-        _simulation?.OnDayEnding();
-    }
-
-    private void OnSaving(object? sender, SavingEventArgs e)
-    {
-        if (_simulation is null || _loadFailed || !Context.IsMainPlayer)
+        if (Simulation is null)
         {
             return;
         }
 
-        MoneyBridge.Reconcile(_simulation, Helper.Translation.Get("entry.reconcile-saving"));
-        _store!.Save(_simulation.Snapshot());
+        int units = ShippingBridge.RecordShipments(Simulation);
+        if (units > 0)
+        {
+            Monitor.Log(Helper.Translation.Get("log.shipments", new { units }), LogLevel.Debug);
+        }
+
+        Simulation.OnDayEnding();
+    }
+
+    private void OnSaving(object? sender, SavingEventArgs e)
+    {
+        if (Simulation is null || _loadFailed || !Context.IsMainPlayer)
+        {
+            return;
+        }
+
+        MoneyBridge.Reconcile(Simulation, Helper.Translation.Get("entry.reconcile-saving"));
+        _store!.Save(Simulation.Snapshot());
     }
 
     private void OnReturnedToTitle(object? sender, ReturnedToTitleEventArgs e)
     {
-        _simulation = null;
+        Simulation = null;
         _loadFailed = false;
     }
 
@@ -158,7 +190,7 @@ internal sealed class ModEntry : Mod
     /// <summary>Descarta el estado actual y empieza de cero con la fecha y el oro actuales (solo modo debug).</summary>
     private void ResetSimulation()
     {
-        _simulation = CreateSimulation();
+        Simulation = CreateSimulation();
         _loadFailed = false;
     }
 }

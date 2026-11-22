@@ -196,11 +196,21 @@ haya originado el mod (compra en tienda, venta, regalo) se detecta y se asienta 
 
 ### 6.2 Modelo de precio
 
-```
-P(t) = P_base · IPC(t) · F_estación(t) · exp(x(t))
+Implementado en la Fase 1 (`Core/Commodities/CommodityMarket.cs`), un paso por día:
 
-dx = -θ · x · dt  +  α · (D(t) - S(t)) / Volumen_normal  +  σ · ε  +  Saltos_por_eventos
 ```
+stock(t) = stock(t-1) · (1 − decay) + ventas_del_jugador(t-1)
+x(t)     = (1 − θ) · x(t-1) + σ · volDificultad · ε          ε ~ N(0,1), stream RNG "commodity.<id>"
+log m(t) = x(t) − α · ln(1 + stock(t) / volumenBase) + ln F_estación + Σ impacto_eventos(t)
+mReal(t) = clamp(e^log m(t), 0,30, 3,00)
+P(t)     = P_vanilla · mReal(t) · IPC(t)                     (P_vanilla ya incluye calidad y profesiones)
+```
+
+- El impacto de las ventas es logarítmico (saturante) y se recupera a medida que el mercado absorbe el stock.
+  Con los parámetros iniciales: 100 chirivías → −4% al día siguiente; 2.000 → −30%, y en 3 semanas vuelve a ~95%.
+- Parámetros por commodity en `data/commodities.json` (bloque `market`); eventos en `data/events.json`.
+
+Diseño original (referencia):
 
 - `P_base`: precio vanilla del objeto.
 - `F_estación`: los cultivos fuera de estación son más escasos (más caros); en cosecha, más baratos.
@@ -488,3 +498,8 @@ Cada parámetro puede además ajustarse individualmente en `config.json` (y con 
 
 - **Fase 2**: las descripciones de los asientos se guardan como texto en el idioma activo al registrarlos. Guardar una
   clave de traducción + parámetros para que el libro diario se muestre siempre en el idioma actual.
+- **Fase 2**: las ventas directas a tiendas (Pierre, Willy, Clint…) se pagan al precio de mercado pero todavía no
+  suman oferta; solo el cajón de envíos mueve el precio.
+- **Fase 2**: la inflación se aplica a las tiendas que usan `ShopMenu`; faltan las construcciones de Robin y las
+  mejoras de herramientas de Clint.
+- **Fase 2+**: el impacto de una venta grande se aplica al día siguiente; evaluar *slippage* dentro del mismo envío.

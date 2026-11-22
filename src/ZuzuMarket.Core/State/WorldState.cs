@@ -1,6 +1,9 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ZuzuMarket.Core.Commodities;
+using ZuzuMarket.Core.Events;
 using ZuzuMarket.Core.Ledger;
+using ZuzuMarket.Core.Macro;
 using ZuzuMarket.Core.Time;
 
 namespace ZuzuMarket.Core.State;
@@ -8,7 +11,8 @@ namespace ZuzuMarket.Core.State;
 /// <summary>Todo el estado del mod para una partida. Se guarda junto con la partida.</summary>
 public sealed class WorldState
 {
-    public const int CurrentSchemaVersion = 1;
+    /// <summary>1: Fase 0. 2: inflación, commodities y eventos.</summary>
+    public const int CurrentSchemaVersion = 2;
 
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
 
@@ -23,6 +27,12 @@ public sealed class WorldState
     public string DifficultyId { get; set; } = "realista";
 
     public LedgerState Ledger { get; set; } = new();
+
+    public InflationState Inflation { get; set; } = new();
+
+    public Dictionary<string, CommodityState> Commodities { get; set; } = new();
+
+    public EventsState Events { get; set; } = new();
 }
 
 public sealed class WorldStateSerializationException : Exception
@@ -73,7 +83,11 @@ public static class WorldStateSerializer
     /// <summary>Actualiza estados guardados con esquemas viejos. Cada versión nueva agrega su paso acá.</summary>
     private static WorldState Migrate(WorldState state)
     {
-        // Esquema 1 es el inicial: no hay migraciones todavía.
+        // 1 → 2: los módulos nuevos arrancan vacíos (los inicializadores ya los crean al deserializar)
+        // y la simulación los pone en marcha al cargar: IPC = 1, precios en su nivel normal, sin eventos.
+        state.Inflation ??= new InflationState();
+        state.Commodities ??= new Dictionary<string, CommodityState>();
+        state.Events ??= new EventsState();
         state.SchemaVersion = WorldState.CurrentSchemaVersion;
         return state;
     }

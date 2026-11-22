@@ -1,3 +1,4 @@
+using ZuzuMarket.Core.Data;
 using ZuzuMarket.Core.Ledger;
 using ZuzuMarket.Core.Simulation;
 using ZuzuMarket.Core.State;
@@ -123,6 +124,101 @@ public class EconomySimulationTests
         Assert.Throws<WorldStateSerializationException>(() => WorldStateSerializer.Deserialize(json));
         Assert.Throws<WorldStateSerializationException>(() => WorldStateSerializer.Deserialize("{ roto"));
         Assert.Throws<WorldStateSerializationException>(() => WorldStateSerializer.Deserialize("null"));
+    }
+
+    [Fact]
+    public void SkippingDays_GivesTheSameResultAsAdvancingDayByDay()
+    {
+        EconomySimulation stepByStep = EconomySimulation.StartNewGame(TestData.Real, 11, Start, "realista", 0);
+        EconomySimulation jumping = EconomySimulation.StartNewGame(TestData.Real, 11, Start, "realista", 0);
+        var target = new EconomicDate(1, Season.Summer, 10);
+
+        TestData.AdvanceTo(stepByStep, target);
+        DayStartedInfo info = jumping.OnDayStarted(target);
+
+        Assert.Equal(target.AbsoluteDay, info.DaysAdvanced);
+        Assert.Equal(stepByStep.Inflation.Index, jumping.Inflation.Index);
+        foreach (string id in stepByStep.Market.States.Keys)
+        {
+            Assert.Equal(stepByStep.Market.Get(id).Multiplier, jumping.Market.Get(id).Multiplier);
+        }
+
+        Assert.Equal(stepByStep.Events.State.News, jumping.Events.State.News);
+    }
+
+    [Fact]
+    public void SameSeedAndSameSales_GiveIdenticalHistories()
+    {
+        EconomySimulation a = EconomySimulation.StartNewGame(TestData.Real, 31, Start, "argentina", 0);
+        EconomySimulation b = EconomySimulation.StartNewGame(TestData.Real, 31, Start, "argentina", 0);
+        for (int day = 0; day < 200; day++)
+        {
+            foreach (EconomySimulation sim in new[] { a, b })
+            {
+                sim.RecordShipment("24", day % 50);
+                sim.RecordShipment("378", day % 7 * 30);
+                sim.OnDayStarted(sim.CurrentDate.AddDays(1), day % 5 == 0 ? Weather.Rain : Weather.Sun);
+            }
+        }
+
+        foreach (string id in a.Market.States.Keys)
+        {
+            Assert.Equal(a.Market.Get(id).History, b.Market.Get(id).History);
+        }
+
+        Assert.Equal(a.Inflation.State.History, b.Inflation.State.History);
+    }
+
+    [Fact]
+    public void SavingAndLoading_DoesNotChangeTheFuture()
+    {
+        EconomySimulation original = EconomySimulation.StartNewGame(TestData.Real, 77, Start, "realista", 100);
+        TestData.AdvanceTo(original, new EconomicDate(1, Season.Summer, 3));
+        original.RecordShipment("256", 300);
+        original.ForceEvent("ola-calor");
+
+        EconomySimulation loaded = EconomySimulation.Load(TestData.Real, WorldStateSerializer.Deserialize(WorldStateSerializer.Serialize(original.Snapshot())));
+        Assert.Equal(original.Market.Get("leche").Multiplier, loaded.Market.Get("leche").Multiplier);
+        Assert.True(loaded.Events.IsActive("ola-calor"));
+
+        var target = new EconomicDate(1, Season.Fall, 20);
+        TestData.AdvanceTo(original, target);
+        TestData.AdvanceTo(loaded, target);
+        Assert.Equal(original.Inflation.Index, loaded.Inflation.Index);
+        foreach (string id in original.Market.States.Keys)
+        {
+            Assert.Equal(original.Market.Get(id).Multiplier, loaded.Market.Get(id).Multiplier);
+        }
+    }
+
+    [Fact]
+    public void SchemaOneSave_FromPhaseZero_MigratesAndStartsTheEconomy()
+    {
+        const string phaseZeroSave = """
+            {"schemaVersion":1,"seed":455031588,
+             "createdOn":{"year":1,"season":"Spring","day":1},
+             "currentDate":{"year":1,"season":"Spring","day":2},
+             "difficultyId":"realista",
+             "ledger":{"entities":["jugador","granja"],"nextEntryId":3,"entries":[
+               {"id":1,"entityId":"jugador","date":{"year":1,"season":"Spring","day":1},"description":"Apertura","source":"apertura",
+                "lines":[{"accountCode":"1.1.01","debit":500,"credit":0},{"accountCode":"3.1.01","debit":0,"credit":500}]},
+               {"id":2,"entityId":"jugador","date":{"year":1,"season":"Spring","day":1},"description":"Venta","source":"conciliacion",
+                "lines":[{"accountCode":"1.1.01","debit":150,"credit":0},{"accountCode":"4.9.01","debit":0,"credit":150}]}]}}
+            """;
+
+        WorldState state = WorldStateSerializer.Deserialize(phaseZeroSave);
+        Assert.Equal(WorldState.CurrentSchemaVersion, state.SchemaVersion);
+
+        EconomySimulation sim = EconomySimulation.Load(TestData.Real, state);
+        Assert.Equal(650m, sim.Ledger.GetBalance(LedgerEntities.Jugador, SystemAccounts.Caja));
+        Assert.Equal(1.0, sim.Inflation.Index);
+        Assert.True(sim.Inflation.HasStarted);
+        Assert.Equal(15, sim.Market.States.Count);
+        Assert.Equal(0.95, sim.Market.Get("chirivia").Multiplier, 10);
+        Assert.Empty(sim.Events.Active);
+
+        sim.OnDayStarted(new EconomicDate(1, Season.Spring, 3));
+        Assert.Single(sim.Market.Get("chirivia").History);
     }
 
     private sealed class RecordingLog : ISimulationLog

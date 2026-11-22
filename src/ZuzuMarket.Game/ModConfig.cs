@@ -7,6 +7,12 @@ internal sealed class ModConfig
     /// Una partida ya iniciada conserva la dificultad con la que empezó.</summary>
     public string Difficulty { get; set; } = "realista";
 
-    /// <summary>Habilita comandos peligrosos de consola, como <c>zuzu_reset</c>.</summary>
+    /// <summary>Mostrar las noticias económicas como aviso en pantalla.</summary>
+    public bool NewsHud { get; set; } = true;
+
+    /// <summary>Mandar cartas del Diario de Zuzu y del INDEF al buzón.</summary>
+    public bool NewsLetters { get; set; } = true;
+
+    /// <summary>Habilita comandos de depuración de consola, como <c>zuzu_reset</c> y <c>zuzu_event</c>.</summary>
     public bool DebugMode { get; set; }
 }

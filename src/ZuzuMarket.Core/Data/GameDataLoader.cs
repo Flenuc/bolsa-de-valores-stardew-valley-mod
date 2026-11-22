@@ -26,6 +26,7 @@ public static class GameDataLoader
     public const string AccountsFile = "accounts.json";
     public const string CommoditiesFile = "commodities.json";
     public const string DifficultiesFile = "difficulties.json";
+    public const string EventsFile = "events.json";
 
     public static IReadOnlyList<string> RequiredDifficulties { get; } = new[] { "casual", "realista", "argentina" };
 
@@ -55,21 +56,23 @@ public static class GameDataLoader
         string? accounts = Read(AccountsFile);
         string? commodities = Read(CommoditiesFile);
         string? difficulties = Read(DifficultiesFile);
-        if (accounts is null || commodities is null || difficulties is null)
+        string? events = Read(EventsFile);
+        if (accounts is null || commodities is null || difficulties is null || events is null)
         {
             return new DataLoadResult(null, errors);
         }
 
-        return LoadFromJson(accounts, commodities, difficulties);
+        return LoadFromJson(accounts, commodities, difficulties, events);
     }
 
-    public static DataLoadResult LoadFromJson(string accountsJson, string commoditiesJson, string difficultiesJson)
+    public static DataLoadResult LoadFromJson(string accountsJson, string commoditiesJson, string difficultiesJson, string eventsJson = "[]")
     {
         var errors = new List<string>();
         List<AccountDefinition>? accounts = Deserialize<List<AccountDefinition>>(accountsJson, AccountsFile, errors);
         List<CommodityDefinition>? commodities = Deserialize<List<CommodityDefinition>>(commoditiesJson, CommoditiesFile, errors);
         List<DifficultyDefinition>? difficulties = Deserialize<List<DifficultyDefinition>>(difficultiesJson, DifficultiesFile, errors);
-        if (accounts is null || commodities is null || difficulties is null)
+        List<EventDefinition>? events = Deserialize<List<EventDefinition>>(eventsJson, EventsFile, errors);
+        if (accounts is null || commodities is null || difficulties is null || events is null)
         {
             return new DataLoadResult(null, errors);
         }
@@ -77,13 +80,14 @@ public static class GameDataLoader
         ValidateAccounts(accounts, errors);
         ValidateCommodities(commodities, errors);
         ValidateDifficulties(difficulties, errors);
+        ValidateEvents(events, commodities, errors);
         if (errors.Count > 0)
         {
             return new DataLoadResult(null, errors);
         }
 
         var chart = new ChartOfAccounts(accounts.Select(a => new Account(a.Code, a.Name, a.Type)));
-        return new DataLoadResult(new GameData(chart, commodities, difficulties), errors);
+        return new DataLoadResult(new GameData(chart, commodities, difficulties, events), errors);
     }
 
     private static T? Deserialize<T>(string json, string file, List<string> errors)
@@ -184,6 +188,96 @@ public static class GameDataLoader
             if (c.FuturesContractSize <= 0)
             {
                 errors.Add($"{CommoditiesFile}: {c.Id} necesita futuresContractSize > 0.");
+            }
+
+            ValidateMarket(c, errors);
+        }
+    }
+
+    private static void ValidateMarket(CommodityDefinition c, List<string> errors)
+    {
+        CommodityMarketParameters? m = c.Market;
+        if (m is null)
+        {
+            errors.Add($"{CommoditiesFile}: {c.Id} tiene el bloque market vacío.");
+            return;
+        }
+
+        if (m.Volatility < 0 || m.Volatility > 0.5)
+        {
+            errors.Add($"{CommoditiesFile}: {c.Id} tiene volatility fuera de [0, 0.5].");
+        }
+
+        if (m.MeanReversion <= 0 || m.MeanReversion >= 1)
+        {
+            errors.Add($"{CommoditiesFile}: {c.Id} tiene meanReversion fuera de (0, 1).");
+        }
+
+        if (m.StockDecay <= 0 || m.StockDecay >= 1)
+        {
+            errors.Add($"{CommoditiesFile}: {c.Id} tiene stockDecay fuera de (0, 1).");
+        }
+
+        if (m.BaseVolume <= 0 || m.Impact < 0 || m.InSeasonFactor <= 0 || m.OffSeasonFactor <= 0)
+        {
+            errors.Add($"{CommoditiesFile}: {c.Id} necesita baseVolume, inSeasonFactor y offSeasonFactor > 0 e impact >= 0.");
+        }
+    }
+
+    private static void ValidateEvents(List<EventDefinition> events, List<CommodityDefinition> commodities, List<string> errors)
+    {
+        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var commodityIds = new HashSet<string>(commodities.Select(c => c.Id), StringComparer.OrdinalIgnoreCase);
+        var sectors = new HashSet<string>(commodities.Select(c => c.Sector), StringComparer.OrdinalIgnoreCase);
+        foreach (EventDefinition e in events)
+        {
+            if (string.IsNullOrWhiteSpace(e.Id))
+            {
+                errors.Add($"{EventsFile}: hay un evento sin id.");
+                continue;
+            }
+
+            if (!ids.Add(e.Id))
+            {
+                errors.Add($"{EventsFile}: id de evento duplicado {e.Id}.");
+            }
+
+            if (e.Probability is < 0 or > 1)
+            {
+                errors.Add($"{EventsFile}: {e.Id} tiene una probabilidad fuera de [0, 1].");
+            }
+
+            if (e.DurationDays < 1 || e.CooldownDays < 0 || e.MinYear < 1)
+            {
+                errors.Add($"{EventsFile}: {e.Id} necesita durationDays >= 1, cooldownDays >= 0 y minYear >= 1.");
+            }
+
+            if (e.FixedDate is { } fixedDate && (fixedDate.Day < 1 || fixedDate.Day > Time.EconomicDate.DaysPerSeason))
+            {
+                errors.Add($"{EventsFile}: {e.Id} tiene una fecha fija inválida.");
+            }
+
+            if (e.Effects.Count == 0 && e.InflationShock == 0)
+            {
+                errors.Add($"{EventsFile}: {e.Id} no tiene efectos.");
+            }
+
+            foreach (EventEffect effect in e.Effects)
+            {
+                string target = effect.Target ?? "";
+                bool valid = string.Equals(target, "all", StringComparison.OrdinalIgnoreCase)
+                    || (target.StartsWith(EventDefinition.SectorPrefix, StringComparison.OrdinalIgnoreCase)
+                        && sectors.Contains(target.Substring(EventDefinition.SectorPrefix.Length)))
+                    || commodityIds.Contains(target);
+                if (!valid)
+                {
+                    errors.Add($"{EventsFile}: {e.Id} apunta a un destino inexistente: \"{target}\".");
+                }
+
+                if (Math.Abs(effect.PriceImpact) > 1.5)
+                {
+                    errors.Add($"{EventsFile}: {e.Id} tiene un priceImpact desmedido ({effect.PriceImpact}).");
+                }
             }
         }
     }
