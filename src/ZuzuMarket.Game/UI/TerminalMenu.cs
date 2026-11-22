@@ -738,7 +738,7 @@ internal sealed partial class TerminalMenu : IClickableMenu
         get ??= () => _amount;
         set ??= v => _amount = v;
         long[] steps = { -1000, -100, 100, 1000 };
-        int box = width is null ? 200 : 170;
+        int box = width is null ? 200 : 150;
         int bw = width is int w ? Math.Max(60, (w - box - 48) / 5) : 100;
         int allWidth = width is null ? 120 : bw;
         int cx = x;

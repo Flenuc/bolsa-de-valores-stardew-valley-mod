@@ -51,22 +51,25 @@ internal sealed partial class TerminalMenu
             _selectedCompany = active[0].Id;
         }
 
-        // Selector compacto: hasta 3 sociedades por fila.
-        int bw = (area.Width - 20) / 3;
+        // Selector compacto: hasta 2 sociedades por fila.
+        int bw = (area.Width - 10) / 2;
         for (int i = 0; i < active.Count; i++)
         {
             string id = active[i].Id;
-            Button(b, new Rectangle(area.X + ((i % 3) * (bw + 10)), y + ((i / 3) * 48), bw, 42), CompanyMail.TypeName(I18n, active[i].Type), () =>
+            Button(b, new Rectangle(area.X + ((i % 2) * (bw + 10)), y + ((i / 2) * 48), bw, 42), CompanyMail.TypeName(I18n, active[i].Type), () =>
             {
                 _selectedCompany = id;
                 _confirmDissolve = false;
             }, selected: _selectedCompany == id);
         }
 
-        y += (((active.Count - 1) / 3) + 1) * 48;
+        y += (((active.Count - 1) / 2) + 1) * 48;
         CompanyState selected = active.First(c => c.Id == _selectedCompany);
-        Text(b, T("terminal.companies.header", new { name = CompanyName(selected), rating = selected.Rating, cuit = selected.Cuit }), area.X, y, Muted);
-        y += 32;
+        foreach (string line in Wrap(T("terminal.companies.header", new { name = CompanyName(selected), rating = selected.Rating, cuit = selected.Cuit }), area.Width).Take(2))
+        {
+            Text(b, line, area.X, y, Muted);
+            y += 30;
+        }
         decimal unpaid = Companies.TaxesOf(selected).Unpaid.Sum(o => (decimal)o.Total);
         decimal distributable = Companies.Distributable(selected);
         bool srl = selected.Form.Equals("SRL", StringComparison.OrdinalIgnoreCase);
