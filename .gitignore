@@ -1,0 +1,17 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.idea/
+TestResults/
+*.nupkg
+
+## ModBuildConfig release zips
+*.zip
+
+## OS
+Thumbs.db
+desktop.ini
+.DS_Store

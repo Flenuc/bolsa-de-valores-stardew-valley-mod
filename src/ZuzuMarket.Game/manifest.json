@@ -1,0 +1,10 @@
+{
+  "Name": "Bolsa de Valores de Zuzu",
+  "Author": "Flenuc",
+  "Version": "0.1.0",
+  "Description": "Simulador económico-financiero: commodities, inflación, impuestos argentinos y mercado de capitales.",
+  "UniqueID": "Flenuc.ZuzuMarket",
+  "EntryDll": "ZuzuMarket.dll",
+  "MinimumApiVersion": "4.0.0",
+  "UpdateKeys": [ "GitHub:Flenuc/bolsa-de-valores-stardew-valley-mod" ]
+}

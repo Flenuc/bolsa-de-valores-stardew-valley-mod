@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <AssemblyName>ZuzuMarket</AssemblyName>
+    <RootNamespace>ZuzuMarket.Game</RootNamespace>
+    <!-- ModBuildConfig: nombre de la carpeta en Mods/ y zip solo en Release. -->
+    <ModFolderName>ZuzuMarket</ModFolderName>
+    <EnableModZip Condition="'$(Configuration)' != 'Release'">false</EnableModZip>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Pathoschild.Stardew.ModBuildConfig" Version="4.4.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ZuzuMarket.Core\ZuzuMarket.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="data\**\*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

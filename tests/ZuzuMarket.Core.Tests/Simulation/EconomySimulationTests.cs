@@ -1,0 +1,138 @@
+using ZuzuMarket.Core.Ledger;
+using ZuzuMarket.Core.Simulation;
+using ZuzuMarket.Core.State;
+using ZuzuMarket.Core.Time;
+
+namespace ZuzuMarket.Core.Tests.Simulation;
+
+public class EconomySimulationTests
+{
+    private static readonly EconomicDate Start = new(1, Season.Spring, 1);
+
+    [Fact]
+    public void StartNewGame_PostsOpeningEntry()
+    {
+        EconomySimulation sim = EconomySimulation.StartNewGame(TestData.Real, 777, Start, "realista", 500);
+
+        Assert.Equal(500m, sim.Ledger.GetBalance(LedgerEntities.Jugador, SystemAccounts.Caja));
+        Assert.Equal(500m, sim.Ledger.GetBalance(LedgerEntities.Jugador, SystemAccounts.Capital));
+        JournalEntry opening = Assert.Single(sim.Ledger.Entries);
+        Assert.Equal(EntrySources.Apertura, opening.Source);
+        Assert.Equal("realista", sim.Difficulty.Id);
+        Assert.True(sim.Ledger.HasEntity(LedgerEntities.Granja));
+    }
+
+    [Fact]
+    public void StartNewGame_WithZeroGold_HasNoEntries()
+    {
+        EconomySimulation sim = EconomySimulation.StartNewGame(TestData.Real, 1, Start, "casual", 0);
+        Assert.Empty(sim.Ledger.Entries);
+    }
+
+    [Fact]
+    public void StartNewGame_UnknownDifficulty_Throws()
+    {
+        Assert.Throws<ArgumentException>(() => EconomySimulation.StartNewGame(TestData.Real, 1, Start, "imposible", 0));
+    }
+
+    [Fact]
+    public void ReconcileCash_PostsIncomeAndExpense()
+    {
+        EconomySimulation sim = EconomySimulation.StartNewGame(TestData.Real, 1, Start, "realista", 500);
+
+        JournalEntry? income = sim.ReconcileCash(800, "Venta");
+        Assert.NotNull(income);
+        Assert.Equal(300m, sim.Ledger.GetBalance(LedgerEntities.Jugador, SystemAccounts.IngresosNoClasificados));
+
+        JournalEntry? expense = sim.ReconcileCash(650, "Compra");
+        Assert.NotNull(expense);
+        Assert.Equal(150m, sim.Ledger.GetBalance(LedgerEntities.Jugador, SystemAccounts.EgresosNoClasificados));
+        Assert.Equal(650m, sim.Ledger.GetBalance(LedgerEntities.Jugador, SystemAccounts.Caja));
+
+        Assert.Null(sim.ReconcileCash(650, "Sin cambios"));
+        Assert.Equal(3, sim.Ledger.Entries.Count);
+    }
+
+    [Fact]
+    public void OnDayStarted_DetectsNewPeriodAndYear()
+    {
+        EconomySimulation sim = EconomySimulation.StartNewGame(TestData.Real, 1, new EconomicDate(1, Season.Winter, 27), "realista", 0);
+
+        DayStartedInfo sameDay = sim.OnDayStarted(new EconomicDate(1, Season.Winter, 27));
+        Assert.Equal(0, sameDay.DaysAdvanced);
+        Assert.False(sameDay.IsNewFiscalPeriod);
+
+        DayStartedInfo lastDay = sim.OnDayStarted(new EconomicDate(1, Season.Winter, 28));
+        Assert.False(lastDay.IsNewFiscalPeriod);
+        Assert.False(lastDay.IsBusinessDay);
+
+        DayStartedInfo newYear = sim.OnDayStarted(new EconomicDate(2, Season.Spring, 1));
+        Assert.True(newYear.IsNewFiscalPeriod);
+        Assert.True(newYear.IsNewFiscalYear);
+        Assert.True(newYear.IsBusinessDay);
+        Assert.Equal(new EconomicDate(2, Season.Spring, 1), sim.CurrentDate);
+    }
+
+    [Fact]
+    public void OnDayStarted_WarnsWhenTimeGoesBackwards()
+    {
+        var log = new RecordingLog();
+        EconomySimulation sim = EconomySimulation.StartNewGame(TestData.Real, 1, new EconomicDate(1, Season.Summer, 10), "realista", 0, log);
+        sim.OnDayStarted(new EconomicDate(1, Season.Summer, 5));
+        Assert.Contains(log.Warnings, w => w.Contains("anterior"));
+        Assert.Equal(new EconomicDate(1, Season.Summer, 5), sim.CurrentDate);
+    }
+
+    [Fact]
+    public void Random_DependsOnSeedDateAndStream()
+    {
+        EconomySimulation a = EconomySimulation.StartNewGame(TestData.Real, 5, Start, "realista", 0);
+        EconomySimulation b = EconomySimulation.StartNewGame(TestData.Real, 5, Start, "realista", 0);
+        Assert.Equal(a.Random("eventos").NextUInt64(), b.Random("eventos").NextUInt64());
+        Assert.NotEqual(a.Random("eventos").NextUInt64(), a.Random("precios").NextUInt64());
+    }
+
+    [Fact]
+    public void SaveAndLoad_RoundTripsEverything()
+    {
+        EconomySimulation original = EconomySimulation.StartNewGame(TestData.Real, ulong.MaxValue - 3, Start, "argentina", 500);
+        original.OnDayStarted(new EconomicDate(1, Season.Spring, 2));
+        original.ReconcileCash(1234, "Venta de chirivías");
+
+        string json = WorldStateSerializer.Serialize(original.Snapshot());
+        EconomySimulation loaded = EconomySimulation.Load(TestData.Real, WorldStateSerializer.Deserialize(json));
+
+        Assert.Equal(original.Seed, loaded.Seed);
+        Assert.Equal(original.CurrentDate, loaded.CurrentDate);
+        Assert.Equal(original.CreatedOn, loaded.CreatedOn);
+        Assert.Equal("argentina", loaded.Difficulty.Id);
+        Assert.Equal(1234m, loaded.Ledger.GetBalance(LedgerEntities.Jugador, SystemAccounts.Caja));
+        Assert.Equal(
+            original.Ledger.Entries.Select(e => (e.Id, e.Description, e.Date, e.TotalDebit)),
+            loaded.Ledger.Entries.Select(e => (e.Id, e.Description, e.Date, e.TotalDebit)));
+
+        JournalEntry? next = loaded.ReconcileCash(1000, "Compra");
+        Assert.Equal(3, next!.Id);
+        Assert.Equal(original.Random("x").NextUInt64(), loaded.Random("x").NextUInt64());
+    }
+
+    [Fact]
+    public void Deserialize_RejectsNewerSchemaAndGarbage()
+    {
+        string json = WorldStateSerializer.Serialize(new WorldState { SchemaVersion = WorldState.CurrentSchemaVersion + 1 });
+        Assert.Throws<WorldStateSerializationException>(() => WorldStateSerializer.Deserialize(json));
+        Assert.Throws<WorldStateSerializationException>(() => WorldStateSerializer.Deserialize("{ roto"));
+        Assert.Throws<WorldStateSerializationException>(() => WorldStateSerializer.Deserialize("null"));
+    }
+
+    private sealed class RecordingLog : ISimulationLog
+    {
+        public List<string> Warnings { get; } = new();
+
+        public void Info(string message)
+        {
+        }
+
+        public void Warn(string message) => Warnings.Add(message);
+    }
+}

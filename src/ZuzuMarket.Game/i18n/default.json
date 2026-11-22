@@ -1,0 +1,70 @@
+{
+  // Log
+  "log.data-loaded": "Data loaded: {{accounts}} accounts, {{commodities}} commodities, {{difficulties}} difficulty levels.",
+  "log.data-failed": "Zuzu Stock Exchange could not load its data files and will stay disabled. See the errors above.",
+  "log.unknown-difficulty": "Unknown difficulty '{{difficulty}}' in config.json; using '{{fallback}}'.",
+  "log.farmhand": "Zuzu Stock Exchange only runs for the main player for now (multiplayer comes later).",
+  "log.state-loaded": "Economy resumed: {{date}}, {{entries}} journal entries.",
+  "log.state-created": "Economy started for this save (difficulty: {{difficulty}}).",
+  "log.state-failed": "The saved economy data could not be read. The mod is disabled for this session and will NOT overwrite it.",
+  "log.new-period": "New fiscal period: {{period}}.",
+
+  // Journal entries
+  "entry.reconcile-day-start": "Gold reconciliation at day start (unclassified movements)",
+  "entry.reconcile-saving": "Gold reconciliation before saving (unclassified movements)",
+
+  // Dates
+  "date.format": "{{weekday}} {{day}} of {{season}}, year {{year}}",
+  "period.format": "{{season}} of year {{year}}",
+  "season.spring": "Spring",
+  "season.summer": "Summer",
+  "season.fall": "Fall",
+  "season.winter": "Winter",
+  "weekday.monday": "Mon",
+  "weekday.tuesday": "Tue",
+  "weekday.wednesday": "Wed",
+  "weekday.thursday": "Thu",
+  "weekday.friday": "Fri",
+  "weekday.saturday": "Sat",
+  "weekday.sunday": "Sun",
+
+  // Common
+  "common.yes": "yes",
+  "common.no": "no",
+
+  // Ledger columns
+  "ledger.debit": "Debit",
+  "ledger.credit": "Credit",
+  "ledger.account": "Account",
+  "ledger.debits": "Debits",
+  "ledger.credits": "Credits",
+  "ledger.balance": "Balance",
+  "ledger.totals": "TOTALS",
+  "ledger.balanced": "balanced",
+  "ledger.unbalanced": "UNBALANCED",
+
+  // Console commands
+  "cmd.no-game": "Load a save first (only the main player).",
+  "cmd.status.help": "Shows the state of the economic simulation.\n\nUsage: zuzu_status",
+  "cmd.status.title": "=== Zuzu Stock Exchange ===",
+  "cmd.status.date": "Date: {{date}}",
+  "cmd.status.business-day": "Business day: {{business}} · Market open now: {{open}}",
+  "cmd.status.period": "Fiscal period: {{period}}",
+  "cmd.status.difficulty": "Difficulty: {{difficulty}}",
+  "cmd.status.seed": "Seed: {{seed}} (simulating since {{since}})",
+  "cmd.status.cash": "Cash (ledger): {{cash}} · Player gold: {{gold}}g · Difference: {{diff}}",
+  "cmd.status.entries": "Journal entries: {{count}}",
+  "cmd.ledger.help": "Shows the latest journal entries.\n\nUsage: zuzu_ledger [count]\n- count: how many entries (default 10).",
+  "cmd.ledger.title": "Latest {{count}} journal entries:",
+  "cmd.ledger.empty": "The journal has no entries yet.",
+  "cmd.balance.help": "Shows the trial balance of an accounting entity.\n\nUsage: zuzu_balance [entity]\n- entity: jugador (default) or granja.",
+  "cmd.balance.title": "Trial balance — {{entity}}",
+  "cmd.balance.unknown-entity": "Unknown entity '{{entity}}'. Available: {{entities}}.",
+  "cmd.rng.help": "Shows values from a deterministic random stream (same seed + day = same values).\n\nUsage: zuzu_rng <stream> [count]",
+  "cmd.rng.usage": "Usage: zuzu_rng <stream> [count]. Example: zuzu_rng events 5",
+  "cmd.rng.result": "Stream '{{stream}}' on {{date}}: {{values}}",
+  "cmd.reset.help": "DEBUG: discards the economy of this save and starts it again with the current date and gold.\n\nUsage: zuzu_reset confirm",
+  "cmd.reset.debug-only": "zuzu_reset requires \"DebugMode\": true in config.json.",
+  "cmd.reset.confirm": "This erases all the economic history of this save. Type 'zuzu_reset confirm' to proceed.",
+  "cmd.reset.done": "Economy restarted. It will be saved when the day ends."
+}

@@ -1,0 +1,226 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using ZuzuMarket.Core.Ledger;
+
+namespace ZuzuMarket.Core.Data;
+
+public sealed class DataLoadResult
+{
+    public DataLoadResult(GameData? data, IReadOnlyList<string> errors)
+    {
+        Data = data;
+        Errors = errors;
+    }
+
+    /// <summary>Datos cargados, o <c>null</c> si hubo errores.</summary>
+    public GameData? Data { get; }
+
+    public IReadOnlyList<string> Errors { get; }
+
+    public bool Success => Data is not null && Errors.Count == 0;
+}
+
+/// <summary>Carga y valida los archivos de <c>data/</c>.</summary>
+public static class GameDataLoader
+{
+    public const string AccountsFile = "accounts.json";
+    public const string CommoditiesFile = "commodities.json";
+    public const string DifficultiesFile = "difficulties.json";
+
+    public static IReadOnlyList<string> RequiredDifficulties { get; } = new[] { "casual", "realista", "argentina" };
+
+    internal static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        ReadCommentHandling = JsonCommentHandling.Skip,
+        AllowTrailingCommas = true,
+        Converters = { new JsonStringEnumConverter() },
+    };
+
+    public static DataLoadResult LoadFromDirectory(string directory)
+    {
+        var errors = new List<string>();
+        string? Read(string file)
+        {
+            string path = Path.Combine(directory, file);
+            if (!File.Exists(path))
+            {
+                errors.Add($"Falta el archivo de datos {file} (buscado en {path}).");
+                return null;
+            }
+
+            return File.ReadAllText(path);
+        }
+
+        string? accounts = Read(AccountsFile);
+        string? commodities = Read(CommoditiesFile);
+        string? difficulties = Read(DifficultiesFile);
+        if (accounts is null || commodities is null || difficulties is null)
+        {
+            return new DataLoadResult(null, errors);
+        }
+
+        return LoadFromJson(accounts, commodities, difficulties);
+    }
+
+    public static DataLoadResult LoadFromJson(string accountsJson, string commoditiesJson, string difficultiesJson)
+    {
+        var errors = new List<string>();
+        List<AccountDefinition>? accounts = Deserialize<List<AccountDefinition>>(accountsJson, AccountsFile, errors);
+        List<CommodityDefinition>? commodities = Deserialize<List<CommodityDefinition>>(commoditiesJson, CommoditiesFile, errors);
+        List<DifficultyDefinition>? difficulties = Deserialize<List<DifficultyDefinition>>(difficultiesJson, DifficultiesFile, errors);
+        if (accounts is null || commodities is null || difficulties is null)
+        {
+            return new DataLoadResult(null, errors);
+        }
+
+        ValidateAccounts(accounts, errors);
+        ValidateCommodities(commodities, errors);
+        ValidateDifficulties(difficulties, errors);
+        if (errors.Count > 0)
+        {
+            return new DataLoadResult(null, errors);
+        }
+
+        var chart = new ChartOfAccounts(accounts.Select(a => new Account(a.Code, a.Name, a.Type)));
+        return new DataLoadResult(new GameData(chart, commodities, difficulties), errors);
+    }
+
+    private static T? Deserialize<T>(string json, string file, List<string> errors)
+        where T : class
+    {
+        try
+        {
+            T? result = JsonSerializer.Deserialize<T>(json, JsonOptions);
+            if (result is null)
+            {
+                errors.Add($"{file}: el archivo está vacío.");
+            }
+
+            return result;
+        }
+        catch (JsonException ex)
+        {
+            errors.Add($"{file}: JSON inválido ({ex.Message}).");
+            return null;
+        }
+    }
+
+    private static void ValidateAccounts(List<AccountDefinition> accounts, List<string> errors)
+    {
+        var codes = new HashSet<string>(StringComparer.Ordinal);
+        foreach (AccountDefinition a in accounts)
+        {
+            if (string.IsNullOrWhiteSpace(a.Code) || string.IsNullOrWhiteSpace(a.Name))
+            {
+                errors.Add($"{AccountsFile}: hay una cuenta sin código o sin nombre.");
+                continue;
+            }
+
+            if (!Enum.IsDefined(typeof(AccountType), a.Type))
+            {
+                errors.Add($"{AccountsFile}: la cuenta {a.Code} tiene un tipo inválido.");
+            }
+
+            if (!codes.Add(a.Code))
+            {
+                errors.Add($"{AccountsFile}: código de cuenta duplicado {a.Code}.");
+            }
+        }
+
+        foreach (string required in SystemAccounts.All)
+        {
+            if (!codes.Contains(required))
+            {
+                errors.Add($"{AccountsFile}: falta la cuenta de sistema {required}.");
+            }
+        }
+    }
+
+    private static void ValidateCommodities(List<CommodityDefinition> commodities, List<string> errors)
+    {
+        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var itemOwners = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (CommodityDefinition c in commodities)
+        {
+            if (string.IsNullOrWhiteSpace(c.Id) || string.IsNullOrWhiteSpace(c.Name))
+            {
+                errors.Add($"{CommoditiesFile}: hay un commodity sin id o sin nombre.");
+                continue;
+            }
+
+            if (!ids.Add(c.Id))
+            {
+                errors.Add($"{CommoditiesFile}: id de commodity duplicado {c.Id}.");
+            }
+
+            if (string.IsNullOrWhiteSpace(c.Sector))
+            {
+                errors.Add($"{CommoditiesFile}: {c.Id} no tiene sector.");
+            }
+
+            if (c.ItemIds.Count == 0)
+            {
+                errors.Add($"{CommoditiesFile}: {c.Id} no tiene objetos del juego asociados.");
+            }
+
+            foreach (string itemId in c.ItemIds)
+            {
+                if (itemOwners.TryGetValue(itemId, out string? owner))
+                {
+                    errors.Add($"{CommoditiesFile}: el objeto {itemId} está en {owner} y en {c.Id}.");
+                }
+                else
+                {
+                    itemOwners[itemId] = c.Id;
+                }
+            }
+
+            if (c.AllYear == (c.HarvestSeasons.Count > 0))
+            {
+                errors.Add($"{CommoditiesFile}: {c.Id} debe tener estaciones de cosecha o allYear=true (no ambos).");
+            }
+
+            if (c.FuturesContractSize <= 0)
+            {
+                errors.Add($"{CommoditiesFile}: {c.Id} necesita futuresContractSize > 0.");
+            }
+        }
+    }
+
+    private static void ValidateDifficulties(List<DifficultyDefinition> difficulties, List<string> errors)
+    {
+        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (DifficultyDefinition d in difficulties)
+        {
+            if (string.IsNullOrWhiteSpace(d.Id))
+            {
+                errors.Add($"{DifficultiesFile}: hay una dificultad sin id.");
+                continue;
+            }
+
+            if (!ids.Add(d.Id))
+            {
+                errors.Add($"{DifficultiesFile}: id de dificultad duplicado {d.Id}.");
+            }
+
+            if (d.InflationMin < 0 || d.InflationMax < d.InflationMin)
+            {
+                errors.Add($"{DifficultiesFile}: {d.Id} tiene un rango de inflación inválido.");
+            }
+
+            if (d.SovereignDefaultProbability is < 0 or > 1)
+            {
+                errors.Add($"{DifficultiesFile}: {d.Id} tiene una probabilidad de default fuera de [0, 1].");
+            }
+        }
+
+        foreach (string required in RequiredDifficulties)
+        {
+            if (!ids.Contains(required))
+            {
+                errors.Add($"{DifficultiesFile}: falta la dificultad {required}.");
+            }
+        }
+    }
+}

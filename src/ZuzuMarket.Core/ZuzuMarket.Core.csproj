@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net6.0</TargetFramework>
+    <RootNamespace>ZuzuMarket.Core</RootNamespace>
+    <AssemblyName>ZuzuMarket.Core</AssemblyName>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="ZuzuMarket.Core.Tests" />
+  </ItemGroup>
+
+</Project>

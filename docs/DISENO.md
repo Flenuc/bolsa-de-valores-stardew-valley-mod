@@ -94,11 +94,15 @@ src/
 │   ├── Content/            terminal fabricable, edificio, correo, TV, diario
 │   ├── UI/                 menús de la terminal
 │   ├── Persistence/        guardado por partida (helper.Data.WriteSaveData)
-│   └── Commands/           comandos de consola para debug
-├── ZuzuMarket.Core.Tests/  ← xUnit: tests de la lógica (se corren sin el juego)
-data/                       ← JSON: commodities, empresas, eventos, impuestos, dificultades
-i18n/                       ← es.json (principal), en.json
+│   ├── Commands/           comandos de consola para debug
+│   ├── data/               ← JSON: cuentas, commodities, dificultades (luego empresas, eventos, impuestos)
+│   └── i18n/               ← es.json (principal), default.json (inglés)
+tests/
+└── ZuzuMarket.Core.Tests/  ← xUnit: tests de la lógica (se corren sin el juego, usan los mismos data/*.json)
 ```
+
+`data/` vive dentro del proyecto del mod para que ModBuildConfig lo despliegue a `Mods/ZuzuMarket/data`; los tests
+lo copian a su carpeta de salida.
 
 **Regla de oro:** `Core` no conoce Stardew Valley. `Game` traduce eventos del juego (venta, compra, cambio de día)
 en comandos para `Core`, y aplica los resultados (precios, cobros, embargos) al juego.
@@ -479,3 +483,8 @@ Cada parámetro puede además ajustarse individualmente en `config.json` (y con 
 
 - Nombre y aspecto definitivos del agente de bolsa (provisorio: Julián Ferreyra).
 - ¿Quién hace el arte (retrato, sprites, edificio, Terminal Bursátil)? ¿Placeholder hasta conseguir artista?
+
+## 17. Pendientes técnicos
+
+- **Fase 2**: las descripciones de los asientos se guardan como texto en el idioma activo al registrarlos. Guardar una
+  clave de traducción + parámetros para que el libro diario se muestre siempre en el idioma actual.

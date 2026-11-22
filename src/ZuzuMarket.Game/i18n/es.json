@@ -1,0 +1,70 @@
+{
+  // Log
+  "log.data-loaded": "Datos cargados: {{accounts}} cuentas, {{commodities}} commodities, {{difficulties}} niveles de dificultad.",
+  "log.data-failed": "La Bolsa de Valores de Zuzu no pudo cargar sus archivos de datos y queda desactivada. Mirá los errores de arriba.",
+  "log.unknown-difficulty": "Dificultad desconocida '{{difficulty}}' en config.json; se usa '{{fallback}}'.",
+  "log.farmhand": "Por ahora la Bolsa de Valores de Zuzu solo funciona para el jugador principal (el multijugador viene después).",
+  "log.state-loaded": "Economía retomada: {{date}}, {{entries}} asientos contables.",
+  "log.state-created": "Economía iniciada para esta partida (dificultad: {{difficulty}}).",
+  "log.state-failed": "No se pudieron leer los datos económicos guardados. El mod queda desactivado en esta sesión y NO los va a sobrescribir.",
+  "log.new-period": "Nuevo período fiscal: {{period}}.",
+
+  // Asientos
+  "entry.reconcile-day-start": "Conciliación de oro al iniciar el día (movimientos no clasificados)",
+  "entry.reconcile-saving": "Conciliación de oro antes de guardar (movimientos no clasificados)",
+
+  // Fechas
+  "date.format": "{{weekday}} {{day}} de {{season}}, año {{year}}",
+  "period.format": "{{season}} del año {{year}}",
+  "season.spring": "Primavera",
+  "season.summer": "Verano",
+  "season.fall": "Otoño",
+  "season.winter": "Invierno",
+  "weekday.monday": "Lun",
+  "weekday.tuesday": "Mar",
+  "weekday.wednesday": "Mié",
+  "weekday.thursday": "Jue",
+  "weekday.friday": "Vie",
+  "weekday.saturday": "Sáb",
+  "weekday.sunday": "Dom",
+
+  // Común
+  "common.yes": "sí",
+  "common.no": "no",
+
+  // Columnas contables
+  "ledger.debit": "Debe",
+  "ledger.credit": "Haber",
+  "ledger.account": "Cuenta",
+  "ledger.debits": "Debe",
+  "ledger.credits": "Haber",
+  "ledger.balance": "Saldo",
+  "ledger.totals": "TOTALES",
+  "ledger.balanced": "balanceado",
+  "ledger.unbalanced": "DESBALANCEADO",
+
+  // Comandos de consola
+  "cmd.no-game": "Primero cargá una partida (solo el jugador principal).",
+  "cmd.status.help": "Muestra el estado de la simulación económica.\n\nUso: zuzu_status",
+  "cmd.status.title": "=== Bolsa de Valores de Zuzu ===",
+  "cmd.status.date": "Fecha: {{date}}",
+  "cmd.status.business-day": "Día hábil: {{business}} · Mercado abierto ahora: {{open}}",
+  "cmd.status.period": "Período fiscal: {{period}}",
+  "cmd.status.difficulty": "Dificultad: {{difficulty}}",
+  "cmd.status.seed": "Semilla: {{seed}} (simulando desde {{since}})",
+  "cmd.status.cash": "Caja (contable): {{cash}} · Oro del jugador: {{gold}}g · Diferencia: {{diff}}",
+  "cmd.status.entries": "Asientos registrados: {{count}}",
+  "cmd.ledger.help": "Muestra los últimos asientos del libro diario.\n\nUso: zuzu_ledger [cantidad]\n- cantidad: cuántos asientos (10 por defecto).",
+  "cmd.ledger.title": "Últimos {{count}} asientos:",
+  "cmd.ledger.empty": "El libro diario todavía no tiene asientos.",
+  "cmd.balance.help": "Muestra el balance de sumas y saldos de una entidad contable.\n\nUso: zuzu_balance [entidad]\n- entidad: jugador (por defecto) o granja.",
+  "cmd.balance.title": "Balance de sumas y saldos — {{entity}}",
+  "cmd.balance.unknown-entity": "Entidad desconocida '{{entity}}'. Disponibles: {{entities}}.",
+  "cmd.rng.help": "Muestra valores de un stream aleatorio determinista (misma semilla + día = mismos valores).\n\nUso: zuzu_rng <stream> [cantidad]",
+  "cmd.rng.usage": "Uso: zuzu_rng <stream> [cantidad]. Ejemplo: zuzu_rng eventos 5",
+  "cmd.rng.result": "Stream '{{stream}}' el {{date}}: {{values}}",
+  "cmd.reset.help": "DEBUG: descarta la economía de esta partida y la reinicia con la fecha y el oro actuales.\n\nUso: zuzu_reset confirm",
+  "cmd.reset.debug-only": "zuzu_reset requiere \"DebugMode\": true en config.json.",
+  "cmd.reset.confirm": "Esto borra toda la historia económica de esta partida. Escribí 'zuzu_reset confirm' para continuar.",
+  "cmd.reset.done": "Economía reiniciada. Se guardará al terminar el día."
+}

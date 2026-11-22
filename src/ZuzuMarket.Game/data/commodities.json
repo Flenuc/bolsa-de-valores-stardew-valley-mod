@@ -1,0 +1,25 @@
+[
+  { "id": "trigo",     "name": "Trigo",     "sector": "Granos",     "itemIds": ["262"], "harvestSeasons": ["Summer", "Fall"], "futuresContractSize": 500 },
+  { "id": "maiz",      "name": "Maíz",      "sector": "Granos",     "itemIds": ["270"], "harvestSeasons": ["Summer", "Fall"], "futuresContractSize": 500 },
+  { "id": "chirivia",  "name": "Chirivía",  "sector": "Hortalizas", "itemIds": ["24"],  "harvestSeasons": ["Spring"], "futuresContractSize": 100 },
+  { "id": "papa",      "name": "Papa",      "sector": "Hortalizas", "itemIds": ["192"], "harvestSeasons": ["Spring"], "futuresContractSize": 100 },
+  { "id": "tomate",    "name": "Tomate",    "sector": "Hortalizas", "itemIds": ["256"], "harvestSeasons": ["Summer"], "futuresContractSize": 100 },
+  { "id": "arandano",  "name": "Arándano",  "sector": "Frutas",     "itemIds": ["258"], "harvestSeasons": ["Summer"], "futuresContractSize": 200 },
+  { "id": "melon",     "name": "Melón",     "sector": "Frutas",     "itemIds": ["254"], "harvestSeasons": ["Summer"], "futuresContractSize": 50 },
+  { "id": "calabaza",  "name": "Calabaza",  "sector": "Hortalizas", "itemIds": ["276"], "harvestSeasons": ["Fall"],   "futuresContractSize": 50 },
+  { "id": "leche",     "name": "Leche",     "sector": "Animal",     "itemIds": ["184", "186"], "allYear": true, "futuresContractSize": 100 },
+  { "id": "huevo",     "name": "Huevo",     "sector": "Animal",     "itemIds": ["176", "180", "174", "182"], "allYear": true, "futuresContractSize": 200 },
+  { "id": "cobre",     "name": "Cobre",     "sector": "Mineria",    "itemIds": ["378"], "allYear": true, "futuresContractSize": 500 },
+  { "id": "hierro",    "name": "Hierro",    "sector": "Mineria",    "itemIds": ["380"], "allYear": true, "futuresContractSize": 500 },
+  { "id": "oro",       "name": "Oro",       "sector": "Mineria",    "itemIds": ["384"], "allYear": true, "futuresContractSize": 200 },
+  {
+    "id": "pescado",
+    "name": "Canasta de pescado",
+    "sector": "Pesca",
+    "priceMode": "Index",
+    "itemIds": ["131", "129", "130", "147", "142", "145", "132", "136"],
+    "allYear": true,
+    "futuresContractSize": 50
+  },
+  { "id": "vino",      "name": "Vino",      "sector": "Artesanal",  "priceMode": "Index", "itemIds": ["348"], "allYear": true, "futuresContractSize": 50 }
+]

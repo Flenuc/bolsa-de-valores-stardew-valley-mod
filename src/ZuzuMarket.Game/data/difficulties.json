@@ -1,0 +1,53 @@
+[
+  {
+    "id": "casual",
+    "name": "Casual",
+    "inflationMin": 0.005,
+    "inflationMax": 0.005,
+    "priceVolatility": 0.5,
+    "negativeEventFrequency": 0.5,
+    "taxBurden": 0.5,
+    "tradeDuties": 0.5,
+    "lateInterest": 0.5,
+    "embargoes": ["ingresos"],
+    "bankruptcyEnabled": false,
+    "bankruptcySpeed": 1.0,
+    "sovereignDefaultProbability": 0.0,
+    "currencyControls": false,
+    "amnestyFrequency": 2.0
+  },
+  {
+    "id": "realista",
+    "name": "Realista",
+    "inflationMin": 0.02,
+    "inflationMax": 0.04,
+    "priceVolatility": 1.0,
+    "negativeEventFrequency": 1.0,
+    "taxBurden": 1.0,
+    "tradeDuties": 1.0,
+    "lateInterest": 1.0,
+    "embargoes": ["ingresos", "cuentas", "bienes"],
+    "bankruptcyEnabled": true,
+    "bankruptcySpeed": 1.0,
+    "sovereignDefaultProbability": 0.03,
+    "currencyControls": false,
+    "amnestyFrequency": 1.0
+  },
+  {
+    "id": "argentina",
+    "name": "Argentina",
+    "inflationMin": 0.05,
+    "inflationMax": 0.25,
+    "priceVolatility": 1.75,
+    "negativeEventFrequency": 1.75,
+    "taxBurden": 1.2,
+    "tradeDuties": 1.5,
+    "lateInterest": 1.5,
+    "embargoes": ["ingresos", "cuentas", "bienes", "edificios"],
+    "bankruptcyEnabled": true,
+    "bankruptcySpeed": 1.5,
+    "sovereignDefaultProbability": 0.25,
+    "currencyControls": true,
+    "amnestyFrequency": 2.0
+  }
+]
