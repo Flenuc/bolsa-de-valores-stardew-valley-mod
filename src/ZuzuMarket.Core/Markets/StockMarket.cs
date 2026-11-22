@@ -34,7 +34,27 @@ public sealed class StockMarket
 
     public bool Started => _s.Started;
 
-    public IReadOnlyList<CompanyDefinition> Companies => _data.Companies;
+    /// <summary>Empresas ficticias y sociedades del jugador que cotizan.</summary>
+    public IReadOnlyList<CompanyDefinition> Companies => Listed is null ? _data.Companies : _data.Companies.Concat(Listed()).ToList();
+
+    /// <summary>Sociedades del jugador que cotizan (las provee el motor de sociedades).</summary>
+    public Func<IEnumerable<CompanyDefinition>>? Listed { get; set; }
+
+    /// <summary>UPA real de una sociedad del jugador (null para las ficticias).</summary>
+    public Func<string, double?>? EpsOverride { get; set; }
+
+    public bool IsFictional(string ticker) => _data.Companies.Any(c => string.Equals(c.Ticker, ticker, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Empieza a cotizar una sociedad del jugador a <paramref name="price"/>.</summary>
+    public void List(CompanyDefinition company, double price, double eps, EconomicDate date)
+    {
+        var s = new StockState { Eps = eps, Close = price, PreviousClose = price, Intraday = Flat(price) };
+        s.Sentiment = company.Pe * eps > 0 ? Math.Log(price / (company.Pe * eps)) : 0;
+        s.History.Add(new StockClose(date, price, 0));
+        _s.Stocks[company.Ticker] = s;
+    }
+
+    public void Delist(string ticker) => _s.Stocks.Remove(ticker);
 
     public double Merzu => _s.Merzu;
 
@@ -43,7 +63,7 @@ public sealed class StockMarket
     public StockState Get(string ticker) => _s.Stocks[ticker];
 
     public CompanyDefinition? Find(string ticker) =>
-        _data.Companies.FirstOrDefault(c => string.Equals(c.Ticker, ticker, StringComparison.OrdinalIgnoreCase));
+        Companies.FirstOrDefault(c => string.Equals(c.Ticker, ticker, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>Factor de ingresos: 1 + Σ peso × (precio real promedio del destino − 1).</summary>
     public double RevenueFactor(CompanyDefinition company, CommodityMarket commodities)
@@ -62,7 +82,7 @@ public sealed class StockMarket
     }
 
     public double Eps(CompanyDefinition company, CommodityMarket commodities, double inflationIndex) =>
-        company.BaseEps * inflationIndex * RevenueFactor(company, commodities);
+        EpsOverride?.Invoke(company.Ticker) ?? company.BaseEps * inflationIndex * RevenueFactor(company, commodities);
 
     /// <summary>Arranca la bolsa: precios en su valor fundamental, MERZU en su base.</summary>
     public void Start(EconomicDate date, CommodityMarket commodities, double inflationIndex)
@@ -90,9 +110,13 @@ public sealed class StockMarket
     public void Step(EconomicDate date, CommodityMarket commodities, double inflationIndex, double volatilityMultiplier, ulong seed)
     {
         _s.MerzuPrevious = _s.Merzu;
-        foreach (CompanyDefinition company in _data.Companies)
+        foreach (CompanyDefinition company in Companies)
         {
-            StockState s = _s.Stocks[company.Ticker];
+            if (!_s.Stocks.TryGetValue(company.Ticker, out StockState? s))
+            {
+                continue;
+            }
+
             s.PreviousClose = s.Close;
             if (!date.IsBusinessDay)
             {

@@ -21,6 +21,47 @@ public sealed class CompanyTypeDefinition
 
     /// <summary>Habilita el contenedor de exportación a Gotoro.</summary>
     public bool Exports { get; set; }
+
+    /// <summary>Ticker en BYMZ cuando es S.A.</summary>
+    public string Ticker { get; set; } = "";
+
+    /// <summary>Relación precio/ganancia del rubro.</summary>
+    public double Pe { get; set; } = 10;
+}
+
+/// <summary>ON propias e IPO (Fase 7B).</summary>
+public sealed class CapitalMarketRules
+{
+    public long IpoShares { get; set; } = 100_000;
+
+    public decimal IpoDiscount { get; set; } = 0.10m;
+
+    public decimal UnderwritingFee { get; set; } = 0.03m;
+
+    /// <summary>Parte mínima y máxima en manos del público.</summary>
+    public decimal MinFloat { get; set; } = 0.10m;
+
+    public decimal MaxFloat { get; set; } = 0.49m;
+
+    public decimal BuybackPremium { get; set; } = 0.15m;
+
+    public decimal FollowOnDiscount { get; set; } = 0.05m;
+
+    /// <summary>Calificación mínima para emitir ON o salir a bolsa.</summary>
+    public string MinRating { get; set; } = "B";
+
+    /// <summary>UPA mínima (oro por acción por año, año 1) para valuar la IPO.</summary>
+    public double EpsFloor { get; set; } = 0.01;
+
+    public double Volatility { get; set; } = 0.03;
+
+    public double MeanReversion { get; set; } = 0.05;
+
+    public List<int> BondTerms { get; set; } = new() { 4, 8 };
+
+    public decimal BondMinimum { get; set; } = 1_000m;
+
+    public decimal BondFee { get; set; } = 0.02m;
 }
 
 /// <summary>Forma societaria.</summary>
@@ -52,6 +93,8 @@ public sealed class PlayerCompanyRules
 
     /// <summary>Días con deudas en gestión de cobro hasta la quiebra de la sociedad (÷ velocidad de la dificultad).</summary>
     public int InsolvencyAfterDays { get; set; } = 28;
+
+    public CapitalMarketRules CapitalMarket { get; set; } = new();
 
     public CompanyTypeDefinition? FindType(string id) => Types.FirstOrDefault(t => t.Id.Equals(id, StringComparison.OrdinalIgnoreCase));
 
@@ -91,6 +134,32 @@ public sealed class CompanyState
 
     /// <summary>Capital aportado por el jugador (costo de su participación).</summary>
     public decimal Contributed { get; set; }
+
+    /// <summary>Ticker en BYMZ (al ser S.A.).</summary>
+    public string? Ticker { get; set; }
+
+    /// <summary>Cotización (null si no cotiza).</summary>
+    public ListingState? Listing { get; set; }
+
+    /// <summary>Resultado acumulado (ingresos − egresos) al empezar cada estación, para la UPA de 4 trimestres.</summary>
+    public List<decimal> ProfitSnapshots { get; set; } = new();
+
+    public int BondsIssued { get; set; }
+}
+
+public sealed class ListingState
+{
+    public EconomicDate ListedOn { get; set; }
+
+    public long TotalShares { get; set; }
+
+    public long PlayerShares { get; set; }
+
+    public decimal IpoPrice { get; set; }
+
+    public decimal PlayerFraction => TotalShares > 0 ? (decimal)PlayerShares / TotalShares : 1;
+
+    public long PublicShares => TotalShares - PlayerShares;
 }
 
 public sealed class CompaniesState
@@ -120,6 +189,12 @@ public enum CompanyNoticeKind
     ExportCollected,
     TaxesOverdue,
     InCollection,
+    BondsIssued,
+    BondPaid,
+    Listed,
+    Delisted,
+    Buyback,
+    FollowOn,
 }
 
 public sealed record CompanyNotice(CompanyNoticeKind Kind, EconomicDate Date, string Company, decimal Amount = 0, string? Detail = null);
@@ -137,4 +212,13 @@ public enum CompanyError
     NotFound,
     NotAllowed,
     NothingToDistribute,
+    NotSA,
+    LowRating,
+    NoHistory,
+    AlreadyListed,
+    NotListed,
+    InvalidFloat,
+    InvalidTerm,
+    AboveLimit,
+    BelowMinimum,
 }

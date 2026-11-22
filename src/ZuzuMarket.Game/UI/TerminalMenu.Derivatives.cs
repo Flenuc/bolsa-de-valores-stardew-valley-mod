@@ -121,7 +121,7 @@ internal sealed partial class TerminalMenu
 
     private void DrawOptions(SpriteBatch b, Rectangle area)
     {
-        IReadOnlyList<CompanyDefinition> companies = _sim.Stocks.Companies;
+        IReadOnlyList<CompanyDefinition> companies = _sim.Data.Companies;
         if (companies.All(c => c.Ticker != _selectedOptionTicker))
         {
             _selectedOptionTicker = companies.FirstOrDefault()?.Ticker ?? "";

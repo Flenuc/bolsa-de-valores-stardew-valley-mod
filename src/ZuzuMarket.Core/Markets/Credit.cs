@@ -51,6 +51,9 @@ public sealed class RatingRules
 
 public sealed class IssuerState
 {
+    /// <summary>Sociedad del jugador: su calificación la fija su balance y su default, la falta de pago.</summary>
+    public bool Player { get; set; }
+
     public string Rating { get; set; } = "";
 
     public bool Defaulted { get; set; }
@@ -96,7 +99,8 @@ public sealed class CreditEngine
     /// <summary>Riesgo país en puntos básicos anuales (spread mensual del soberano × 4 estaciones).</summary>
     public double CountryRiskBps => Spread(Sovereign) * EconomicDate.SeasonsPerYear * 10_000;
 
-    public double Recovery(string issuer) => issuer == Sovereign ? Rules.SovereignRecovery : Rules.CorporateRecovery;
+    public double Recovery(string issuer) =>
+        issuer == Sovereign ? Rules.SovereignRecovery : _issuers.TryGetValue(issuer, out IssuerState? s) && s.Player ? 0 : Rules.CorporateRecovery;
 
     /// <summary>Califica a todos los emisores que todavía no tienen calificación.</summary>
     public void Initialize(DifficultyDefinition difficulty)
@@ -141,7 +145,7 @@ public sealed class CreditEngine
         {
             double migration = rng.NextDouble();
             double defaultRoll = rng.NextDouble();
-            if (s.Defaulted)
+            if (s.Defaulted || s.Player)
             {
                 continue;
             }
@@ -169,6 +173,15 @@ public sealed class CreditEngine
         }
 
         return events;
+    }
+
+    /// <summary>Registra una sociedad del jugador como emisor (sin defaults ni migraciones aleatorias).</summary>
+    public void RegisterPlayerIssuer(string issuer, string rating)
+    {
+        if (!_issuers.ContainsKey(issuer))
+        {
+            _issuers[issuer] = new IssuerState { Rating = rating, Player = true };
+        }
     }
 
     /// <summary>Fuerza un default (comando de debug).</summary>

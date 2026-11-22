@@ -53,7 +53,7 @@ public sealed partial class Broker
                 continue;
             }
 
-            foreach (CompanyDefinition company in _stocks.Companies)
+            foreach (CompanyDefinition company in _data.Companies)
             {
                 double spot = _stocks.PriceAt(company.Ticker, timeOfDay);
                 foreach (double strike in DerivativesRules.OptionStrikes.Select(m => RoundStrike(spot * m)).Distinct())

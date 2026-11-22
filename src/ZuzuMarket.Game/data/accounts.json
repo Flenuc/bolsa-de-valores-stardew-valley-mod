@@ -31,8 +31,10 @@
   { "code": "2.1.11", "name": "Deuda concursal", "type": "Pasivo" },
 
   { "code": "2.1.12", "name": "Cobranzas a rendir a sociedades", "type": "Pasivo" },
+  { "code": "2.2.01", "name": "Obligaciones negociables emitidas", "type": "Pasivo" },
   { "code": "3.1.01", "name": "Capital", "type": "PatrimonioNeto" },
   { "code": "3.1.02", "name": "Resultados acumulados", "type": "PatrimonioNeto" },
+  { "code": "3.1.03", "name": "Prima de emisión de acciones", "type": "PatrimonioNeto" },
 
   { "code": "4.1.01", "name": "Ventas", "type": "Ingreso" },
   { "code": "4.2.01", "name": "Resultados por venta de títulos (ganancia)", "type": "Ingreso" },
@@ -59,6 +61,8 @@
   { "code": "5.4.03", "name": "Comisiones y derechos de mercado", "type": "Egreso" },
   { "code": "5.4.04", "name": "Resultados por derivados (pérdida)", "type": "Egreso" },
   { "code": "5.4.05", "name": "Intereses bancarios y de caución", "type": "Egreso" },
+  { "code": "5.4.06", "name": "Intereses de obligaciones negociables", "type": "Egreso" },
+  { "code": "5.4.07", "name": "Gastos de colocación (ON e IPO)", "type": "Egreso" },
   { "code": "5.9.01", "name": "Egresos no clasificados", "type": "Egreso" },
   { "code": "5.9.02", "name": "Diferencias de redondeo", "type": "Egreso" }
 ]

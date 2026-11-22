@@ -69,6 +69,7 @@ Si el juego no está en la ruta estándar de Steam/GOG, agregá `<GamePath>` en 
 | `zuzu_companies` | Tipos de sociedad (y si están desbloqueados) y tus sociedades |
 | `zuzu_company <id>` | Balance e impuestos impagos de una sociedad (p. ej. `emp1`) |
 | `zuzu_exports` | Retenciones por commodity, contenedor de exportación y cobros pendientes |
+| `zuzu_company_eps <id> <monto>` | (solo `DebugMode`) le suma un resultado a una sociedad y cierra una estación, para probar la IPO |
 | `zuzu_unlock_companies` | (solo `DebugMode`) desbloquea todos los tipos de sociedad |
 | `zuzu_place_phone` | Mueve el teléfono de Valle Inversiones al tile que tenés enfrente (en el pueblo) |
 | `zuzu_terminal` | (solo `DebugMode`) abre la Terminal Bursátil en cualquier lado |

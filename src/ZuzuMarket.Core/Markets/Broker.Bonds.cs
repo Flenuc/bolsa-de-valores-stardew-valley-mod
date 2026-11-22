@@ -81,6 +81,11 @@ public sealed partial class Broker
             {
                 int k = bond.PaymentsMade + 1;
                 BondCashFlow flow = BondMath.RemainingFlows(bond, Context(bond.Issuer))[0];
+                if (bond.IssuedUnits > 0 && PayIssuer is not null && !PayIssuer(bond, flow, date))
+                {
+                    break;
+                }
+
                 if (_s.Broker.Bonds.TryGetValue(bond.Id, out Holding? holding))
                 {
                     notices.Add(Collect(bond, holding, flow, date));
@@ -151,6 +156,31 @@ public sealed partial class Broker
 
         return notices;
     }
+
+    /// <summary>Saca de circulación las series de un emisor que quebró: la tenencia se pierde entera.</summary>
+    public List<MarketNotice> WriteOffIssuer(string issuer, EconomicDate date)
+    {
+        var notices = new List<MarketNotice>();
+        foreach (BondSeries bond in _s.Bonds.Where(b => b.Issuer == issuer).ToList())
+        {
+            if (_s.Broker.Bonds.Remove(bond.Id, out Holding? holding) && holding.CostBasis > 0)
+            {
+                _ledger.Post(LedgerEntities.Jugador, date,
+                    new EntryText($"Quiebra del emisor de {bond.Id}", "entry.bond-exchange-loss", new Dictionary<string, string> { ["instrument"] = bond.Id }),
+                    EntrySources.Ajuste,
+                    JournalLine.ToDebit(SystemAccounts.ResultadosVentaNegativos, holding.CostBasis),
+                    JournalLine.ToCredit(SystemAccounts.Bonos, holding.CostBasis));
+                notices.Add(new MarketNotice(MarketNoticeKind.Exchange, date, bond.Id, 0));
+            }
+
+            _s.Bonds.Remove(bond);
+        }
+
+        return notices;
+    }
+
+    /// <summary>Agrega una serie emitida por una sociedad del jugador.</summary>
+    public void AddSeries(BondSeries series) => _s.Bonds.Add(series);
 
     private MarketNotice Collect(BondSeries bond, Holding holding, BondCashFlow flow, EconomicDate date)
     {

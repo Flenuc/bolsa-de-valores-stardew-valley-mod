@@ -72,6 +72,10 @@ public static class SystemAccounts
     public const string ParticipacionesEnSociedades = "1.3.06";
     public const string CobranzasARendirASociedades = "2.1.12";
     public const string DerechosDeExportacion = "5.3.08";
+    public const string OnEmitidas = "2.2.01";
+    public const string PrimaDeEmision = "3.1.03";
+    public const string InteresesDeOn = "5.4.06";
+    public const string GastosDeColocacion = "5.4.07";
 
     public static IReadOnlyList<string> All { get; } = new[]
     {
@@ -84,7 +88,7 @@ public static class SystemAccounts
         ResultadosDerivadosPositivos, ResultadosDerivadosNegativos, PrestamosBancarios, CuotasAPagarBanco,
         CaucionTomadora, DeudaConcursal, InteresesBancarios, IngresosPorRemate, QuitaConcursal,
         ResultadosAcumulados, TasasOtras, CobrosARendirPorSocio, ExportacionesACobrar, ParticipacionesEnSociedades,
-        CobranzasARendirASociedades, DerechosDeExportacion,
+        CobranzasARendirASociedades, DerechosDeExportacion, OnEmitidas, PrimaDeEmision, InteresesDeOn, GastosDeColocacion,
     };
 }
 

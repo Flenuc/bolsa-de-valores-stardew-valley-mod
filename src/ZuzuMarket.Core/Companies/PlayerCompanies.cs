@@ -19,7 +19,7 @@ public sealed record CompanyResult(CompanyError Error, decimal GoldDelta = 0, Co
 /// Sociedades del jugador (§8.2 del diseño): alta, aportes, dividendos, transformación, disolución, quiebra
 /// societaria, atribución de ventas y exportación a Gotoro. Cada sociedad lleva su propio libro e impuestos.
 /// </summary>
-public sealed class PlayerCompanies
+public sealed partial class PlayerCompanies
 {
     private const string Player = LedgerEntities.Jugador;
 
@@ -32,9 +32,23 @@ public sealed class PlayerCompanies
     private readonly CommodityMarket _market;
     private readonly Func<DifficultyDefinition> _difficulty;
     private readonly Dictionary<string, TaxEngine> _taxes = new();
+    private readonly Broker _broker;
+    private readonly CreditEngine _credit;
+    private readonly StockMarket _stocks;
 
-    public PlayerCompanies(GameData data, CompaniesState state, GeneralLedger ledger, TaxEngine playerTaxes, LegalEngine legal, InflationModel inflation, CommodityMarket market, Func<DifficultyDefinition> difficulty)
+    /// <summary>Avisos generados fuera del día a día (p. ej. al pagar ON desde el broker).</summary>
+    private readonly List<CompanyNotice> _pending = new();
+
+    public PlayerCompanies(GameData data, CompaniesState state, GeneralLedger ledger, TaxEngine playerTaxes, LegalEngine legal, InflationModel inflation, CommodityMarket market, Func<DifficultyDefinition> difficulty,
+        Broker broker, CreditEngine credit, StockMarket stocks)
     {
+        _broker = broker;
+        _credit = credit;
+        _stocks = stocks;
+        broker.IsOwnCompany = ticker => Active.Any(c => c.Listing is not null && string.Equals(c.Ticker, ticker, StringComparison.OrdinalIgnoreCase));
+        broker.PayIssuer = PayBondService;
+        stocks.Listed = () => Active.Where(c => c.Listing is not null).Select(Definition).ToList();
+        stocks.EpsOverride = ticker => Active.FirstOrDefault(c => c.Listing is not null && string.Equals(c.Ticker, ticker, StringComparison.OrdinalIgnoreCase)) is { } listed ? MarketEps(listed) : null;
         _data = data;
         _s = state;
         _ledger = ledger;
@@ -125,7 +139,7 @@ public sealed class PlayerCompanies
     {
         decimal liabilities = _ledger.GetTrialBalance(c.Id).Where(r => r.Account.Type == AccountType.Pasivo).Sum(r => r.Balance);
         decimal unpaid = TaxesOf(c).Unpaid.Sum(o => (decimal)o.Total);
-        decimal freeCash = Cash(c) - Math.Max(liabilities, unpaid) - CapitalOf(c);
+        decimal freeCash = Cash(c) - Math.Max(liabilities, unpaid) - CapitalOf(c) - _ledger.GetBalance(c.Id, SystemAccounts.PrimaDeEmision);
         return Math.Max(0, Math.Floor(Math.Min(RetainedEarnings(c), freeCash)));
     }
 
@@ -195,6 +209,7 @@ public sealed class PlayerCompanies
         };
         _s.Companies.Add(company);
         Attach(company);
+        AssignTicker(company);
 
         decimal fee = RegistrationFee(form);
         PostPlayer(date, $"Constitución de {company.Id}", "entry.company-created",
@@ -242,16 +257,22 @@ public sealed class PlayerCompanies
             return new CompanyResult(CompanyError.NothingToDistribute);
         }
 
-        decimal withheld = MoneyRounding.Round(amount * _data.Markets.DividendWithholding);
+        // Si cotiza, a vos te toca tu porcentaje; el resto va a los accionistas minoritarios.
+        decimal own = c.Listing is { } listing ? MoneyRounding.Round(amount * listing.PlayerFraction) : amount;
+        decimal withheld = MoneyRounding.Round(own * _data.Markets.DividendWithholding);
         PostCompany(c, date, "Distribución de dividendos", "entry.company-dividend",
             JournalLine.ToDebit(SystemAccounts.ResultadosAcumulados, amount),
             JournalLine.ToCredit(SystemAccounts.Caja, amount));
-        PostPlayer(date, $"Dividendos de {c.Id}", "entry.company-dividend-received",
-            JournalLine.ToDebit(SystemAccounts.Caja, amount - withheld),
-            JournalLine.ToDebit(SystemAccounts.RetencionDividendos, withheld),
-            JournalLine.ToCredit(SystemAccounts.Dividendos, amount));
-        c.DividendsPaid += amount;
-        return new CompanyResult(CompanyError.None, amount - withheld, c);
+        if (own > 0)
+        {
+            PostPlayer(date, $"Dividendos de {c.Id}", "entry.company-dividend-received",
+                JournalLine.ToDebit(SystemAccounts.Caja, own - withheld),
+                JournalLine.ToDebit(SystemAccounts.RetencionDividendos, withheld),
+                JournalLine.ToCredit(SystemAccounts.Dividendos, own));
+        }
+
+        c.DividendsPaid += own;
+        return new CompanyResult(CompanyError.None, own - withheld, c);
     }
 
     /// <summary>Transforma una S.R.L. en S.A.: paga la tasa y completa el capital mínimo con aportes.</summary>
@@ -283,6 +304,7 @@ public sealed class PlayerCompanies
         }
 
         c.Form = target.Id;
+        AssignTicker(c);
         notices.Add(new CompanyNotice(CompanyNoticeKind.Transformed, date, c.Id, topUp + fee, target.Id));
         return new CompanyResult(CompanyError.None, -(topUp + fee), c);
     }
@@ -298,7 +320,8 @@ public sealed class PlayerCompanies
             return new CompanyResult(CompanyError.NotFound);
         }
 
-        if (_ledger.GetBalance(c.Id, SystemAccounts.CobrosARendirPorSocio) != 0 || _ledger.GetBalance(c.Id, SystemAccounts.ExportacionesACobrar) != 0)
+        if (_ledger.GetBalance(c.Id, SystemAccounts.CobrosARendirPorSocio) != 0 || _ledger.GetBalance(c.Id, SystemAccounts.ExportacionesACobrar) != 0
+            || c.Listing is not null || _ledger.GetBalance(c.Id, SystemAccounts.OnEmitidas) != 0)
         {
             return new CompanyResult(CompanyError.NotAllowed);
         }
@@ -505,8 +528,10 @@ public sealed class PlayerCompanies
 
     public void OnPeriodStart(EconomicDate date, List<CompanyNotice> notices)
     {
+        FlushPending(notices);
         foreach (CompanyState c in Active.ToList())
         {
+            c.ProfitSnapshots.Add(CumulativeProfit(c));
             TaxEngine taxes = TaxesOf(c);
             var taxNotices = new List<TaxNotice>();
             taxNotices.AddRange(taxes.OnPeriodStart(date, FarmSnapshot.Empty, Ipc));
@@ -521,6 +546,7 @@ public sealed class PlayerCompanies
 
     public void OnDay(EconomicDate date, Func<int, double> qualityPremium, List<CompanyNotice> notices)
     {
+        FlushPending(notices);
         foreach (ExportReceivable r in _s.Receivables.Where(r => r.CollectOn <= date).ToList())
         {
             if (Find(r.Company) is { } c)
@@ -619,6 +645,23 @@ public sealed class PlayerCompanies
         }
 
         _s.Receivables.RemoveAll(r => r.Company == c.Id);
+        if (c.Ticker is { } ticker)
+        {
+            if (_credit.Issuers.TryGetValue(ticker, out IssuerState? issuer))
+            {
+                issuer.Defaulted = true;
+                issuer.DefaultedIn = date.FiscalPeriod;
+                issuer.Rating = "D";
+            }
+
+            _broker.WriteOffIssuer(ticker, date);
+            if (c.Listing is not null)
+            {
+                _stocks.Delist(ticker);
+                c.Listing = null;
+            }
+        }
+
         WriteOffOtherAssets(c, date, includeCash: true);
         Close(c, date, 0);
         if (c.Contributed > 0)
@@ -645,6 +688,10 @@ public sealed class PlayerCompanies
         c.Score = score;
         c.Rating = score >= 85 ? "AAA" : score >= 75 ? "AA" : score >= 65 ? "A" : score >= 55 ? "BBB"
             : score >= 45 ? "BB" : score >= 35 ? "B" : score >= 20 ? "CCC" : "D";
+        if (c.Ticker is { } ticker && _credit.Issuers.TryGetValue(ticker, out IssuerState? issuer) && !issuer.Defaulted)
+        {
+            issuer.Rating = c.Rating;
+        }
     }
 
     // ───────────────────────────── Internos ─────────────────────────────
@@ -653,6 +700,16 @@ public sealed class PlayerCompanies
     {
         _ledger.AddEntity(c.Id);
         _taxes[c.Id] = new TaxEngine(_data, c.Taxes, _ledger, _difficulty(), c.Id, company: true, nextId: () => _playerTaxes.State.NextObligationId++);
+        if (c.Active)
+        {
+            AssignTicker(c);
+        }
+    }
+
+    private void FlushPending(List<CompanyNotice> notices)
+    {
+        notices.AddRange(_pending);
+        _pending.Clear();
     }
 
     private void Contribute(CompanyState c, decimal amount, EconomicDate date)

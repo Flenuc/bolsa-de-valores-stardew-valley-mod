@@ -90,7 +90,7 @@ public sealed class EconomySimulation
         Credit = new CreditEngine(data, state.Markets.Issuers);
         Broker = new Broker(data, state.Markets, ledger, Stocks, CentralBank, Credit, Inflation, Market, Events, Taxes, () => Difficulty);
         Legal = new LegalEngine(data, state.Legal, ledger, Taxes, Broker, CentralBank, () => Difficulty);
-        Companies = new PlayerCompanies(data, state.Companies, ledger, Taxes, Legal, Inflation, Market, () => Difficulty);
+        Companies = new PlayerCompanies(data, state.Companies, ledger, Taxes, Legal, Inflation, Market, () => Difficulty, Broker, Credit, Stocks);
 
         if (!Inflation.HasStarted)
         {

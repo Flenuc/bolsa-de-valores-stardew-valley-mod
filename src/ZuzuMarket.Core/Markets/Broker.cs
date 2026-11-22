@@ -29,6 +29,9 @@ public enum TradeError
     AccountFrozen,
 
     AboveLimit,
+
+    /// <summary>Es la acción de tu propia sociedad: solo recompra o colocación desde la pestaña Empresas.</summary>
+    OwnCompany,
 }
 
 /// <summary>Cotización de una orden de mercado con todos sus costos.</summary>
@@ -94,6 +97,15 @@ public sealed partial class Broker
 
     /// <summary>Cuenta comitente embargada (la fija el motor legal): no se puede retirar.</summary>
     public Func<bool> IsAccountFrozen { get; set; } = () => false;
+
+    /// <summary>Ticker de una sociedad del jugador (la fija el motor de sociedades).</summary>
+    public Func<string, bool> IsOwnCompany { get; set; } = _ => false;
+
+    /// <summary>
+    /// Servicio de ON emitidas por una sociedad del jugador: la sociedad paga el flujo por lámina × láminas emitidas.
+    /// Devuelve false si no pudo pagar (la sociedad quiebra y la serie entra en default).
+    /// </summary>
+    public Func<BondSeries, BondCashFlow, EconomicDate, bool>? PayIssuer { get; set; }
 
     /// <summary>Durante una venta forzosa (caución impaga, quiebra) se ignoran el horario y la inhibición.</summary>
     private bool _forcing;
@@ -538,6 +550,11 @@ public sealed partial class Broker
         if (quantity <= 0)
         {
             return TradeError.InvalidQuantity;
+        }
+
+        if (kind == InstrumentKind.Stock && IsOwnCompany(id))
+        {
+            return TradeError.OwnCompany;
         }
 
         if (!_forcing && !IsMarketOpen(date, timeOfDay))

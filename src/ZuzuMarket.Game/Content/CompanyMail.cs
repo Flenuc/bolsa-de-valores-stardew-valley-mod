@@ -12,6 +12,7 @@ internal sealed class CompanyMail
     private static readonly CompanyNoticeKind[] Letters =
     {
         CompanyNoticeKind.Created, CompanyNoticeKind.Transformed, CompanyNoticeKind.Dissolved, CompanyNoticeKind.Bankrupt,
+        CompanyNoticeKind.Listed, CompanyNoticeKind.Delisted, CompanyNoticeKind.BondsIssued,
     };
 
     private readonly IModHelper _helper;

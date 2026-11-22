@@ -514,7 +514,7 @@ Cada parámetro puede además ajustarse individualmente en `config.json` (y con 
 | **5 — Derivados** | MATZU: futuros con garantías y entrega física, Silo de Acopio, opciones | Cubrís tu cosecha | Ciclo completo de un futuro con entrega |
 | **6 — Legal** | Embargos, concurso, quiebra, préstamos bancarios, calificación del jugador | Las deudas tienen consecuencias | Escalera completa reproducible en tests |
 | **7A — Expansión empresaria** | Nuevas empresas del jugador, S.A., retenciones/aranceles completos, comercializadora Gotoro | Tus sociedades | Sociedades con libro e impuestos propios |
-| **7B — Mercado de capitales propio** | Emisión de ON propias, IPO de una S.A. que cotiza en BYMZ | Final del juego | IPO funcional |
+| **7B — Mercado de capitales propio** | Emisión de ON propias, IPO de una S.A. que cotiza en BYMZ (implementado) | Final del juego | IPO funcional |
 | **8 — Edificio, NPC y pulido** | Agencia Bursátil en el lote al sur de la plaza, NPC agente de bolsa (horarios, diálogos, amistad, eventos), gráficos, balance de dificultades, i18n en/es, compatibilidad con GMCM | Versión 1.0 | Partida de prueba de 1 año en cada dificultad |
 | **9 — Multijugador / Argentina avanzada** | Host autoritativo, cuentas por granjero; tipo de cambio, cepo, brecha | — | — |
 

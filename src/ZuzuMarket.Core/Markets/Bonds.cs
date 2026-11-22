@@ -65,6 +65,9 @@ public sealed class BondSeries
 
     public bool IsRestructured { get; set; }
 
+    /// <summary>Láminas (VN 100) en circulación: solo las ON de las sociedades del jugador (las paga la sociedad).</summary>
+    public long IssuedUnits { get; set; }
+
     public EconomicDate PaymentDate(int payment) => IssueDate.FiscalPeriod.AddSeasons(payment).FirstDay;
 
     public EconomicDate Maturity => PaymentDate(TenorSeasons);

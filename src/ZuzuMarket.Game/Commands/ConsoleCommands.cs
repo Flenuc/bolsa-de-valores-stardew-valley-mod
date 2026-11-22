@@ -84,6 +84,7 @@ internal sealed class ConsoleCommands
         _helper.ConsoleCommands.Add("zuzu_companies", I18n.Get("cmd.companies.help"), WithSimulation(CompaniesCmd));
         _helper.ConsoleCommands.Add("zuzu_company", I18n.Get("cmd.company.help"), WithSimulation(CompanyCmd));
         _helper.ConsoleCommands.Add("zuzu_exports", I18n.Get("cmd.exports.help"), WithSimulation(ExportsCmd));
+        _helper.ConsoleCommands.Add("zuzu_company_eps", I18n.Get("cmd.company-eps.help"), WithSimulation(CompanyEpsCmd));
         _helper.ConsoleCommands.Add("zuzu_unlock_companies", I18n.Get("cmd.unlock-companies.help"), WithSimulation(UnlockCompaniesCmd));
     }
 
@@ -833,6 +834,25 @@ internal sealed class ConsoleCommands
             contributed = Money(co.Contributed),
             dividends = Money(co.DividendsPaid),
         }));
+        if (co.Ticker is { } ticker)
+        {
+            sb.AppendLine(I18n.Get("cmd.company.market", new
+            {
+                ticker,
+                eps = sim.Companies.MarketEps(co).ToString("0.000", System.Globalization.CultureInfo.InvariantCulture),
+                fundamental = Money(sim.Companies.FundamentalPrice(co)),
+                listed = co.Listing is { } l
+                    ? I18n.Get("cmd.company.listed", new { price = Money(sim.Companies.MarketPrice(co)), pct = Formatting.Percent(I18n, (double)l.PlayerFraction), shares = l.TotalShares })
+                    : I18n.Get("cmd.company.not-listed"),
+                bonds = Money(sim.Companies.BondsOutstanding(co)),
+                limit = Money(sim.Companies.BondLimit(co)),
+            }));
+            foreach (BondSeries bond in sim.Broker.ActiveBonds(false).Where(b => b.Issuer == ticker))
+            {
+                sb.AppendLine($"  {bond.Id}: {bond.IssuedUnits * 100}g VN · cupón {Formatting.Percent(I18n, bond.CouponRate)} · vence {GameDateBridge.Format(I18n, bond.Maturity)}");
+            }
+        }
+
         foreach (TrialBalanceRow row in sim.Ledger.GetTrialBalance(co.Id).Where(r => r.Balance != 0))
         {
             sb.AppendLine($"  {row.Account.Code} {row.Account.Name,-45} {Money(row.Balance),15}");
@@ -872,6 +892,23 @@ internal sealed class ConsoleCommands
         }
 
         _monitor.Log(sb.ToString().TrimEnd(), LogLevel.Info);
+    }
+
+    private void CompanyEpsCmd(EconomySimulation sim, string[] args)
+    {
+        if (!_config.DebugMode)
+        {
+            _monitor.Log(I18n.Get("cmd.debug-only", new { command = "zuzu_company_eps" }), LogLevel.Warn);
+            return;
+        }
+
+        if (args.Length < 2 || !long.TryParse(args[1], out long amount) || !sim.Companies.DebugProfit(args[0], amount, sim.CurrentDate))
+        {
+            _monitor.Log(I18n.Get("cmd.company-eps.usage"), LogLevel.Info);
+            return;
+        }
+
+        _monitor.Log(I18n.Get("cmd.company-eps.done", new { id = args[0], amount = Money(amount) }), LogLevel.Info);
     }
 
     private void UnlockCompaniesCmd(EconomySimulation sim, string[] args)

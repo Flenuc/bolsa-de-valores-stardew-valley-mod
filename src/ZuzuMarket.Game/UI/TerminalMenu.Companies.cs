@@ -16,6 +16,13 @@ internal sealed partial class TerminalMenu
     private string _newForm = "SRL";
     private long _newCapital = 5_000;
     private bool _confirmDissolve;
+    private bool _capitalView;
+    private long _bondAmount = 5_000;
+    private int _bondTerm = 4;
+    private int _bondInstallments = 1;
+    private int _primaryPct = 10;
+    private int _secondaryPct = 10;
+    private long _shareBlock = 5_000;
 
     private PlayerCompanies Companies => _sim.Companies;
 
@@ -26,7 +33,16 @@ internal sealed partial class TerminalMenu
     {
         int split = area.X + (int)(area.Width * 0.5);
         DrawOwnCompanies(b, new Rectangle(area.X, area.Y, split - area.X - 30, area.Height));
-        DrawNewCompany(b, new Rectangle(split, area.Y, area.Right - split, area.Height));
+        var right = new Rectangle(split, area.Y, area.Right - split, area.Height);
+        if (_capitalView && Companies.Find(_selectedCompany) is { Active: true } selected)
+        {
+            DrawCapitalMarket(b, right, selected);
+        }
+        else
+        {
+            _capitalView = false;
+            DrawNewCompany(b, right);
+        }
     }
 
     private void DrawOwnCompanies(SpriteBatch b, Rectangle area)
@@ -129,10 +145,12 @@ internal sealed partial class TerminalMenu
         });
         y += 56;
 
+        Button(b, new Rectangle(area.X, y, w, 50), T(_capitalView ? "terminal.capital.back" : "terminal.capital.open"), () => _capitalView = !_capitalView,
+            selected: _capitalView);
         if (Companies.Exporter?.Id == selected.Id)
         {
             int units = Companies.State.ExportContainer.Sum(i => i.Stack);
-            Button(b, new Rectangle(area.X, y, area.Width, 50), T("terminal.companies.exports", new { units }), () =>
+            Button(b, new Rectangle(area.X + w + 10, y, w, 50), T("terminal.companies.exports", new { units }), () =>
             {
                 exitThisMenu();
                 _actions.OpenExports(_sim);

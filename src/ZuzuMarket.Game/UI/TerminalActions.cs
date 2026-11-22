@@ -55,6 +55,30 @@ internal sealed class TerminalActions
         return Apply(sim.Companies.Dissolve(id, sim.CurrentDate, notices), notices);
     }
 
+    public CompanyError IssueBond(EconomySimulation sim, string id, long amount, int term, int installments)
+    {
+        var notices = new List<CompanyNotice>();
+        return Apply(sim.Companies.IssueBond(id, amount, term, installments, sim.CurrentDate, notices), notices);
+    }
+
+    public CompanyError Ipo(EconomySimulation sim, string id, long primary, long secondary)
+    {
+        var notices = new List<CompanyNotice>();
+        return Apply(sim.Companies.Ipo(id, primary, secondary, sim.CurrentDate, notices), notices);
+    }
+
+    public CompanyError Buyback(EconomySimulation sim, string id, long shares)
+    {
+        var notices = new List<CompanyNotice>();
+        return Apply(sim.Companies.Buyback(id, shares, Game1.player.Money, sim.CurrentDate, notices), notices);
+    }
+
+    public CompanyError FollowOn(EconomySimulation sim, string id, long shares)
+    {
+        var notices = new List<CompanyNotice>();
+        return Apply(sim.Companies.FollowOn(id, shares, sim.CurrentDate, notices), notices);
+    }
+
     private CompanyError Apply(CompanyResult r, List<CompanyNotice> notices)
     {
         if (r.Error == CompanyError.None)

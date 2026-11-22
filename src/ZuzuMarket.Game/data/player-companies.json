@@ -6,11 +6,11 @@
 // priceBonus: mejor precio de venta del rubro (venta directa, sin acopiador).
 {
   "types": [
-    { "id": "agropecuaria",     "activities": ["agro"],      "unlock": "none",      "priceBonus": 0.05 },
-    { "id": "minera",           "activities": ["mineria"],   "unlock": "mine40",    "priceBonus": 0.08 },
-    { "id": "pesquera",         "activities": ["pesca"],     "unlock": "fishing6",  "priceBonus": 0.08 },
-    { "id": "industrial",       "activities": ["artesanal"], "unlock": "machines5", "priceBonus": 0.06 },
-    { "id": "comercializadora", "activities": [],            "unlock": "year2",     "priceBonus": 0, "exports": true }
+    { "id": "agropecuaria",     "activities": ["agro"],      "unlock": "none",      "priceBonus": 0.05, "ticker": "AGRO", "pe": 9 },
+    { "id": "minera",           "activities": ["mineria"],   "unlock": "mine40",    "priceBonus": 0.08, "ticker": "MINA", "pe": 8 },
+    { "id": "pesquera",         "activities": ["pesca"],     "unlock": "fishing6",  "priceBonus": 0.08, "ticker": "PESC", "pe": 9 },
+    { "id": "industrial",       "activities": ["artesanal"], "unlock": "machines5", "priceBonus": 0.06, "ticker": "INDU", "pe": 12 },
+    { "id": "comercializadora", "activities": [],            "unlock": "year2",     "priceBonus": 0, "exports": true, "ticker": "COME", "pe": 10 }
   ],
 
   // Formas societarias: capital mínimo y tasa de inscripción (oro del año 1, se indexan por el IPC).
@@ -26,5 +26,26 @@
   "seasonalFee": 100,
 
   // Días con deudas en gestión de cobro hasta la quiebra de la sociedad (÷ "bankruptcySpeed" de la dificultad).
-  "insolvencyAfterDays": 28
+  "insolvencyAfterDays": 28,
+
+  // Mercado de capitales de tus S.A. (ticker y P/E de cada tipo arriba).
+  // IPO: acciones iniciales, descuento de colocación, comisión, parte mínima/máxima en manos del público.
+  // Recompra con prima y colocación posterior con descuento. ON: plazos (estaciones), mínimo y gastos de colocación;
+  // el máximo es (facturación anual + patrimonio) × el factor de la calificación de legal.json.
+  "capitalMarket": {
+    "ipoShares": 100000,
+    "ipoDiscount": 0.10,
+    "underwritingFee": 0.03,
+    "minFloat": 0.10,
+    "maxFloat": 0.49,
+    "buybackPremium": 0.15,
+    "followOnDiscount": 0.05,
+    "minRating": "B",
+    "epsFloor": 0.01,
+    "volatility": 0.03,
+    "meanReversion": 0.05,
+    "bondTerms": [4, 8],
+    "bondMinimum": 1000,
+    "bondFee": 0.02
+  }
 }
