@@ -1,0 +1,36 @@
+// Embargos, concurso, quiebra, préstamos y caución tomadora (§10.5 y §11 de docs/DISENO.md).
+// Los plazos se cuentan desde que hay deudas en gestión de cobro y se dividen por "bankruptcySpeed" de la dificultad.
+// Qué se puede embargar lo define "embargoes" de cada dificultad (ingresos, cuentas, bienes, edificios);
+// la quiebra solo existe si la dificultad tiene "bankruptcyEnabled".
+{
+  "embargoAfterDays": 7,
+  "seizureAfterDays": 14,
+  "seizureEveryDays": 7,
+  "bankruptcyAfterDays": 28,
+
+  // Embargo de ingresos (parte de cada cobro del cajón), valor de remate de objetos y de edificios.
+  "incomeGarnishRate": 0.30,
+  "seizureValueRate": 0.5,
+  "buildingAuctionRate": 0.5,
+
+  // Concurso preventivo: cuotas por estación y quita según tu calificación.
+  "concursoInstallments": 4,
+  "concursoHaircut": { "AAA": 0.0, "AA": 0.0, "A": 0.05, "BBB": 0.10, "BB": 0.15, "B": 0.20, "CCC": 0.30, "D": 0.30 },
+
+  // Estaciones de inhabilitación después de una quiebra.
+  "inhabilitationSeasons": 4,
+
+  // Banco de Zuzu: plazos (estaciones), margen sobre la tasa del BCRF y límite de crédito
+  // = (loanRevenueShare × facturación anual + loanEquityShare × patrimonio neto) × factor de tu calificación.
+  "loanTerms": [2, 4, 8],
+  "bankSpread": 0.01,
+  "loanRevenueShare": 0.5,
+  "loanEquityShare": 0.3,
+  "loanFactor": { "AAA": 1.5, "AA": 1.3, "A": 1.1, "BBB": 1.0, "BB": 0.7, "B": 0.5, "CCC": 0.2, "D": 0.0 },
+  "loanMinimum": 100,
+
+  // Caución tomadora: plazos en días, máximo sobre el valor de tus títulos y margen sobre la tasa de caución.
+  "repoTerms": [7, 14, 28],
+  "repoMaxRatio": 0.5,
+  "repoSpread": 0.01
+}

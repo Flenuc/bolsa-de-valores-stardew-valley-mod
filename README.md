@@ -35,6 +35,7 @@ Si el juego no está en la ruta estándar de Steam/GOG, agregá `<GamePath>` en 
 | `NewsLetters` | `true` | Manda cartas del Diario de Zuzu, del INDEF y del fisco al buzón. |
 | `AutoDebit` | `true` | Paga solo las boletas el día del vencimiento (o las vencidas) si alcanza el oro. |
 | `PhonePosition` | `{ "X": 45, "Y": 55 }` | Tile del pueblo donde está el teléfono de Valle Inversiones (se cambia con `zuzu_place_phone`). |
+| `AllowBuildingAuction` | `false` | Solo en Argentina: una quiebra puede rematar edificios de la granja (incluso con animales adentro). |
 | `DebugMode` | `false` | Habilita comandos de depuración como `zuzu_reset` y `zuzu_event`. |
 
 ## Comandos de consola (SMAPI)
@@ -62,6 +63,9 @@ Si el juego no está en la ruta estándar de Steam/GOG, agregá `<GamePath>` en 
 | `zuzu_options <ticker>` | Cadena de opciones de una acción |
 | `zuzu_silo [open]` | Contenido del Silo de Acopio (`open` abre el cofre; requiere `DebugMode`) |
 | `zuzu_margin_call <commodity> <impacto>` | (solo `DebugMode`) mueve un precio y corre el control de garantías |
+| `zuzu_credit` | Calificación crediticia, límite, préstamos y cauciones tomadoras |
+| `zuzu_legal` | Situación legal: deuda exigible, embargo, concurso e inhabilitación |
+| `zuzu_debt <monto>` | (solo `DebugMode`) crea una deuda en gestión de cobro para probar la escalera legal |
 | `zuzu_place_phone` | Mueve el teléfono de Valle Inversiones al tile que tenés enfrente (en el pueblo) |
 | `zuzu_terminal` | (solo `DebugMode`) abre la Terminal Bursátil en cualquier lado |
 | `zuzu_trade buy\|sell <especie> <cant>` | (solo `DebugMode`) opera sin la Terminal |

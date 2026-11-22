@@ -21,6 +21,14 @@ public enum TradeError
     InsufficientHoldings,
     BelowMinimum,
     InvalidTerm,
+
+    /// <summary>Embargo, concurso o inhabilitación: solo se pueden cerrar posiciones.</summary>
+    Inhibited,
+
+    /// <summary>Cuenta comitente embargada: no se puede retirar.</summary>
+    AccountFrozen,
+
+    AboveLimit,
 }
 
 /// <summary>Cotización de una orden de mercado con todos sus costos.</summary>
@@ -80,6 +88,15 @@ public sealed partial class Broker
         _credit = credit;
         _inflation = inflation;
     }
+
+    /// <summary>Inhibición (la fija el motor legal): no se abren posiciones nuevas.</summary>
+    public Func<bool> IsInhibited { get; set; } = () => false;
+
+    /// <summary>Cuenta comitente embargada (la fija el motor legal): no se puede retirar.</summary>
+    public Func<bool> IsAccountFrozen { get; set; } = () => false;
+
+    /// <summary>Durante una venta forzosa (caución impaga, quiebra) se ignoran el horario y la inhibición.</summary>
+    private bool _forcing;
 
     public BrokerState State => _s.Broker;
 
@@ -146,6 +163,11 @@ public sealed partial class Broker
         if (amount <= 0)
         {
             return TradeError.InvalidQuantity;
+        }
+
+        if (IsAccountFrozen())
+        {
+            return TradeError.AccountFrozen;
         }
 
         if (amount > Cash)
@@ -518,13 +540,18 @@ public sealed partial class Broker
             return TradeError.InvalidQuantity;
         }
 
-        if (!IsMarketOpen(date, timeOfDay))
+        if (!_forcing && !IsMarketOpen(date, timeOfDay))
         {
             return TradeError.MarketClosed;
         }
 
         if (side == TradeSide.Buy)
         {
+            if (!_forcing && IsInhibited())
+            {
+                return TradeError.Inhibited;
+            }
+
             return buyTotal > Cash ? TradeError.InsufficientFunds : TradeError.None;
         }
 

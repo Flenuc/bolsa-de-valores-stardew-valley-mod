@@ -98,7 +98,7 @@ public sealed partial class Broker
         long after = current + (side == TradeSide.Buy ? quantity : -quantity);
         decimal marginAfter = RequiredMargin(date, timeOfDay, contract.Id, after);
 
-        TradeError error = ValidateDerivative(quantity, date, timeOfDay, commission + iva + Math.Max(0, marginAfter - MarginBalance));
+        TradeError error = ValidateDerivative(quantity, date, timeOfDay, commission + iva + Math.Max(0, marginAfter - MarginBalance), Math.Abs(after) > Math.Abs(current));
         return new DerivativeQuote(InstrumentKind.Future, contract.Id, side, quantity, price, notional, commission, iva, marginAfter, error);
     }
 
@@ -329,6 +329,15 @@ public sealed partial class Broker
     }
 
     /// <summary>Reemplaza el contenido del silo (lo usa el juego al cerrar el cofre).</summary>
+    public void RemoveFromSilo(SiloItem item, int units)
+    {
+        item.Stack -= Math.Min(units, item.Stack);
+        if (item.Stack <= 0)
+        {
+            _s.Derivatives.Silo.Remove(item);
+        }
+    }
+
     public void SetSilo(IEnumerable<SiloItem> items)
     {
         _s.Derivatives.Silo.Clear();

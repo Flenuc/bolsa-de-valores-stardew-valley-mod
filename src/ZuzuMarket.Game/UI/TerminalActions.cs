@@ -22,6 +22,20 @@ internal sealed class TerminalActions
 
     public void OpenSilo(EconomySimulation sim) => _silo.Open(sim);
 
+    /// <summary>Pide un préstamo: el oro entra al bolsillo.</summary>
+    public TradeError TakeLoan(EconomySimulation sim, long amount, int term)
+    {
+        var notices = new List<ZuzuMarket.Core.Legal.LegalNotice>();
+        ZuzuMarket.Core.Legal.LoanQuote q = sim.Legal.TakeLoan(amount, term, sim.CurrentDate, notices);
+        if (q.Error == TradeError.None)
+        {
+            Game1.player.Money += (int)q.Amount;
+            _money.Reset();
+        }
+
+        return q.Error;
+    }
+
     public void OpenAccount(EconomySimulation sim)
     {
         if (!sim.Broker.IsOpen)

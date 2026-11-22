@@ -26,6 +26,7 @@ internal sealed partial class TerminalMenu : IClickableMenu
         Stocks,
         FixedIncome,
         Derivatives,
+        Credit,
         Portfolio,
         Account,
     }
@@ -153,6 +154,9 @@ internal sealed partial class TerminalMenu : IClickableMenu
                     break;
                 case Tab.Derivatives:
                     DrawDerivatives(b, content);
+                    break;
+                case Tab.Credit:
+                    DrawCredit(b, content);
                     break;
                 case Tab.Portfolio:
                     DrawPortfolio(b, content);
@@ -724,29 +728,31 @@ internal sealed partial class TerminalMenu : IClickableMenu
         }
     }
 
-    private void DrawAmountControls(SpriteBatch b, int x, int y, decimal max)
+    private void DrawAmountControls(SpriteBatch b, int x, int y, decimal max, Func<long>? get = null, Action<long>? set = null)
     {
+        get ??= () => _amount;
+        set ??= v => _amount = v;
         long[] steps = { -1000, -100, 100, 1000 };
         int cx = x;
         for (int i = 0; i < 2; i++)
         {
             long step = steps[i];
-            Button(b, new Rectangle(cx, y, 100, 50), step.ToString("#,0", Formatting.Culture(I18n)), () => _amount = Math.Max(0, _amount + step));
+            Button(b, new Rectangle(cx, y, 100, 50), step.ToString("#,0", Formatting.Culture(I18n)), () => set(Math.Max(0, get() + step)));
             cx += 108;
         }
 
         b.Draw(Game1.staminaRect, new Rectangle(cx, y, 200, 50), Color.White * 0.7f);
-        TextRight(b, Money(_amount), cx + 190, y + 10);
+        TextRight(b, Money(get()), cx + 190, y + 10);
         cx += 212;
         for (int i = 2; i < 4; i++)
         {
             long step = steps[i];
-            Button(b, new Rectangle(cx, y, 100, 50), "+" + step.ToString("#,0", Formatting.Culture(I18n)), () => _amount += step);
+            Button(b, new Rectangle(cx, y, 100, 50), "+" + step.ToString("#,0", Formatting.Culture(I18n)), () => set(get() + step));
             cx += 108;
         }
 
         long all = (long)Math.Floor(max);
-        Button(b, new Rectangle(cx, y, 120, 50), T("terminal.amount.all"), () => _amount = all);
+        Button(b, new Rectangle(cx, y, 120, 50), T("terminal.amount.all"), () => set(all));
     }
 
     // ───────────────────────────── Boleto de orden ─────────────────────────────

@@ -113,6 +113,9 @@ public sealed class BrokerState
 
     public List<Caucion> Cauciones { get; set; } = new();
 
+    /// <summary>Cauciones tomadoras: oro prestado con los títulos en garantía.</summary>
+    public List<Caucion> Repos { get; set; } = new();
+
     public List<Trade> Trades { get; set; } = new();
 
     public long NextId { get; set; } = 1;
@@ -166,6 +169,8 @@ public enum MarketNoticeKind
     FuturesReceived,
     OptionExercised,
     OptionExpired,
+    RepoRepaid,
+    RepoForcedSale,
 }
 
 /// <summary>Algo del mercado que el juego debe comunicar (dividendo cobrado, vencimiento, licitación).</summary>

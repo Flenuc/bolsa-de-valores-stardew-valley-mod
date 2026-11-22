@@ -2,6 +2,7 @@ using ZuzuMarket.Core.Commodities;
 using ZuzuMarket.Core.Data;
 using ZuzuMarket.Core.Events;
 using ZuzuMarket.Core.Ledger;
+using ZuzuMarket.Core.Legal;
 using ZuzuMarket.Core.Macro;
 using ZuzuMarket.Core.Markets;
 using ZuzuMarket.Core.Random;
@@ -45,7 +46,8 @@ public sealed record DayStartedInfo(
     IReadOnlyList<MarketNotice> MarketNotices,
     IReadOnlyList<AutoDebitPayment> AutoDebited,
     IReadOnlyList<RateDecision> RateDecisions,
-    IReadOnlyList<CreditEvent> CreditEvents)
+    IReadOnlyList<CreditEvent> CreditEvents,
+    LegalDay Legal)
 {
     /// <summary>Oro total que el juego tiene que descontarle al jugador por el débito automático.</summary>
     public long AutoDebitTotal => AutoDebited.Sum(p => p.Amount);
@@ -84,6 +86,7 @@ public sealed class EconomySimulation
         CentralBank = new CentralBank(state.CentralBank, data.Markets.CentralBank);
         Credit = new CreditEngine(data, state.Markets.Issuers);
         Broker = new Broker(data, state.Markets, ledger, Stocks, CentralBank, Credit, Inflation, Market, Events, Taxes, () => Difficulty);
+        Legal = new LegalEngine(data, state.Legal, ledger, Taxes, Broker, CentralBank, () => Difficulty);
 
         if (!Inflation.HasStarted)
         {
@@ -138,6 +141,8 @@ public sealed class EconomySimulation
     public CentralBank CentralBank { get; }
 
     public CreditEngine Credit { get; }
+
+    public LegalEngine Legal { get; }
 
     public Broker Broker { get; }
 
@@ -231,6 +236,7 @@ public sealed class EconomySimulation
         var marketNotices = new List<MarketNotice>();
         _rateDecisions = new List<RateDecision>();
         _creditEvents = new List<CreditEvent>();
+        _legalDay = new LegalDay();
 
         if (daysAdvanced < 0)
         {
@@ -263,7 +269,7 @@ public sealed class EconomySimulation
 
         bool newPeriod = daysAdvanced > 0 && date.FiscalPeriod != previous.FiscalPeriod;
         bool newYear = daysAdvanced > 0 && date.Year != previous.Year;
-        return new DayStartedInfo(date, date.IsBusinessDay, newPeriod, newYear, daysAdvanced, newEvents, published, taxNotices, marketNotices, autoDebited, _rateDecisions, _creditEvents);
+        return new DayStartedInfo(date, date.IsBusinessDay, newPeriod, newYear, daysAdvanced, newEvents, published, taxNotices, marketNotices, autoDebited, _rateDecisions, _creditEvents, _legalDay);
     }
 
     /// <summary>Se llama al terminar el día, antes de guardar.</summary>
@@ -359,6 +365,7 @@ public sealed class EconomySimulation
         return Ledger.Post(LedgerEntities.Jugador, _state.CurrentDate, description, EntrySources.Conciliacion, lines);
     }
 
+    private LegalDay _legalDay = new();
     private List<RateDecision> _rateDecisions = new();
     private List<CreditEvent> _creditEvents = new();
 
@@ -377,6 +384,37 @@ public sealed class EconomySimulation
         RecalculatePrices();
         Broker.SettleFutures(_state.CurrentDate);
         return Broker.CheckMargin(_state.CurrentDate);
+    }
+
+    /// <summary>El juego remató objetos o edificios por <paramref name="value"/>: se aplica a las deudas.</summary>
+    public decimal ApplySeizure(decimal value) => Legal.ApplySeizure(value, _state.CurrentDate, new LegalDay());
+
+    /// <summary>Cierra una quiebra declarada hoy (después de que el juego remató lo que pudo).</summary>
+    public LegalDay FinalizeBankruptcy()
+    {
+        var day = new LegalDay();
+        Legal.FinalizeBankruptcy(_state.CurrentDate, day);
+        return day;
+    }
+
+    public LegalNotice? RequestConcurso()
+    {
+        var notices = new List<TaxNotice>();
+        return Legal.RequestConcurso(_state.CurrentDate, notices);
+    }
+
+    /// <summary>Debug: crea una deuda vencida hace tanto que ya está en gestión de cobro.</summary>
+    public TaxObligation CreateTestDebt(long amount)
+    {
+        var notices = new List<TaxNotice>();
+        EconomicDate date = _state.CurrentDate;
+        Ledger.Post(LedgerEntities.Jugador, date, new EntryText("Deuda de prueba", "entry.test-debt"), EntrySources.Ajuste,
+            JournalLine.ToDebit(SystemAccounts.EgresosNoClasificados, amount),
+            JournalLine.ToCredit(SystemAccounts.ImpuestosAPagarArf, amount));
+        TaxObligation o = Taxes.CreateExternal(TaxKind.DeudaVarios, date.FiscalPeriod, amount, date, date, notices);
+        o.Status = ObligationStatus.InCollection;
+        o.LastAccrual = date;
+        return o;
     }
 
     /// <summary>Fuerza el default de un emisor (comando de debug). Devuelve false si no existe o ya estaba en default.</summary>
@@ -508,7 +546,13 @@ public sealed class EconomySimulation
 
         if (Taxes.Started)
         {
+            bool newPeriod = Taxes.State.Current.Period != day.FiscalPeriod;
             taxNotices.AddRange(Taxes.OnPeriodStart(day, farm, (decimal)Inflation.Index));
+            if (newPeriod)
+            {
+                Legal.IssueLoanInstallments(day, taxNotices);
+                Legal.UpdateRating(day, _legalDay.Notices);
+            }
         }
 
         Events.Expire(day);
@@ -530,6 +574,7 @@ public sealed class EconomySimulation
         Market.Step(day, Inflation.Index, (double)difficulty.PriceVolatility, _state.Seed, c => Events.PriceImpact(c, day));
         Stocks.Step(day, Market, Inflation.Index, (double)difficulty.PriceVolatility, _state.Seed);
         marketNotices.AddRange(Broker.OnDay(day));
+        marketNotices.AddRange(Broker.SettleRepos(day));
         if (day.IsBusinessDay)
         {
             // Derivados al cierre: diferencias diarias, entregas y ejercicios que vencen, control de garantías.
@@ -542,7 +587,10 @@ public sealed class EconomySimulation
             }
         }
         RunAutoDebit(day);
+        int before = taxNotices.Count;
         taxNotices.AddRange(Taxes.OnDay(day));
+        Legal.RecordTaxNotices(taxNotices.Skip(before));
+        Legal.OnDay(day, _legalDay);
     }
 
     private void RecalculatePrices()

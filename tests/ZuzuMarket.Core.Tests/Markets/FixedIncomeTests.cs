@@ -168,7 +168,9 @@ public class FixedIncomeTests
         Assert.False(sim.Broker.State.Bonds.ContainsKey("ONCALI1"));
         Assert.Null(sim.Broker.FindBond("ONCALI1"));
         Assert.Equal(0m, Balance(sim, SystemAccounts.Bonos));
-        Assert.True(sim.Broker.Cash > cash + 2_000m - 1m); // recibió el nominal (2.000) más cupones
+        // Recibió el nominal más los cupones (el saldo puede haberse usado para pagar impuestos embargados:
+        // este test no paga las boletas).
+        Assert.True(Balance(sim, SystemAccounts.InteresesGanados) > paid.Amount);
         AssertBooks(sim);
     }
 

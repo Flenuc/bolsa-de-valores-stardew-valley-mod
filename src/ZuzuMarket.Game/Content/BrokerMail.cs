@@ -109,12 +109,14 @@ internal sealed class BrokerMail
                 MarketNoticeKind.FuturesReceived => I18n.Get("broker.hud.received", new { id = n.Instrument, units = n.Amount.ToString("#,0") }),
                 MarketNoticeKind.OptionExercised => I18n.Get("broker.hud.exercised", new { id = n.Instrument }),
                 MarketNoticeKind.OptionExpired => I18n.Get("broker.hud.option-expired", new { id = n.Instrument }),
+                MarketNoticeKind.RepoRepaid => I18n.Get("broker.hud.repo-repaid", new { amount = Formatting.Money(I18n, n.Amount) }),
+                MarketNoticeKind.RepoForcedSale => I18n.Get("broker.hud.repo-forced", new { amount = Formatting.Money(I18n, n.Amount) }),
                 MarketNoticeKind.Exchange => I18n.Get("broker.hud.exchange", new { old = n.Instrument.Split('>')[0], @new = n.Instrument.Split('>')[^1], quantity = n.Amount.ToString("#,0") }),
                 _ => null,
             };
             if (text is not null)
             {
-                bool bad = n.Kind is MarketNoticeKind.MarginCall or MarketNoticeKind.Liquidation or MarketNoticeKind.FuturesShortfall;
+                bool bad = n.Kind is MarketNoticeKind.MarginCall or MarketNoticeKind.Liquidation or MarketNoticeKind.FuturesShortfall or MarketNoticeKind.RepoForcedSale;
                 _hud.Hud(text, bad ? 3 : 2);
             }
         }

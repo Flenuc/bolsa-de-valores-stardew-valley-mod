@@ -78,6 +78,9 @@ internal sealed class ConsoleCommands
         _helper.ConsoleCommands.Add("zuzu_options", I18n.Get("cmd.options.help"), WithSimulation(OptionsCmd));
         _helper.ConsoleCommands.Add("zuzu_silo", I18n.Get("cmd.silo.help"), WithSimulation(SiloCmd));
         _helper.ConsoleCommands.Add("zuzu_margin_call", I18n.Get("cmd.margin-call.help"), WithSimulation(MarginCallCmd));
+        _helper.ConsoleCommands.Add("zuzu_credit", I18n.Get("cmd.credit.help"), WithSimulation(CreditCmd));
+        _helper.ConsoleCommands.Add("zuzu_legal", I18n.Get("cmd.legal.help"), WithSimulation(LegalCmd));
+        _helper.ConsoleCommands.Add("zuzu_debt", I18n.Get("cmd.debt.help"), WithSimulation(DebtCmd));
     }
 
     private Action<string, string[]> WithSimulation(Action<EconomySimulation, string[]> action) => (_, args) =>
@@ -716,6 +719,66 @@ internal sealed class ConsoleCommands
             notices = notices.Count == 0 ? "-" : string.Join(", ", notices.Select(n => n.Kind)),
             balance = Money(sim.Broker.MarginBalance),
         }), LogLevel.Info);
+    }
+
+    private void CreditCmd(EconomySimulation sim, string[] args)
+    {
+        var legal = sim.Legal;
+        var sb = new StringBuilder();
+        sb.AppendLine(I18n.Get("cmd.credit.title"));
+        sb.AppendLine(I18n.Get("cmd.credit.summary", new
+        {
+            rating = legal.Rating,
+            score = legal.State.Score.ToString("0"),
+            limit = Money(legal.LoanLimit),
+            rate = Formatting.Percent(I18n, legal.LoanRate),
+            worth = Money(legal.NetWorth),
+        }));
+        foreach (var loan in legal.State.Loans)
+        {
+            sb.AppendLine($"  Préstamo #{loan.Id}: saldo {Money(loan.Outstanding)} · cuota {loan.Installment}g · {loan.InstallmentsIssued}/{loan.TermSeasons} · tasa {Formatting.Percent(I18n, loan.Rate)}");
+        }
+
+        foreach (var repo in sim.Broker.State.Repos)
+        {
+            sb.AppendLine($"  Caución tomadora #{repo.Id}: {Money(repo.Principal)} + {Money(repo.Interest)} → {GameDateBridge.Format(I18n, repo.Maturity)}");
+        }
+
+        _monitor.Log(sb.ToString().TrimEnd(), LogLevel.Info);
+    }
+
+    private void LegalCmd(EconomySimulation sim, string[] args)
+    {
+        var s = sim.Legal.State;
+        string Date(ZuzuMarket.Core.Time.EconomicDate? d) => d is { } x ? GameDateBridge.Format(I18n, x) : "-";
+        _monitor.Log(I18n.Get("cmd.legal.summary", new
+        {
+            debt = Money(sim.Legal.DebtInCollection),
+            collection = Date(s.CollectionSince),
+            embargo = Date(s.EmbargoSince),
+            concurso = s.ConcursoActive ? I18n.Get("common.yes") : I18n.Get("common.no"),
+            inhabilitado = Date(s.InhabilitadoUntil),
+            bankruptcies = s.Bankruptcies,
+            embargoes = string.Join(", ", sim.Difficulty.Embargoes),
+        }), LogLevel.Info);
+    }
+
+    private void DebtCmd(EconomySimulation sim, string[] args)
+    {
+        if (!_config.DebugMode)
+        {
+            _monitor.Log(I18n.Get("cmd.debug-only", new { command = "zuzu_debt" }), LogLevel.Warn);
+            return;
+        }
+
+        if (args.Length == 0 || !long.TryParse(args[0], out long amount) || amount <= 0)
+        {
+            _monitor.Log(I18n.Get("cmd.debt.usage"), LogLevel.Info);
+            return;
+        }
+
+        sim.CreateTestDebt(amount);
+        _monitor.Log(I18n.Get("cmd.debt.done", new { amount = Money(amount) }), LogLevel.Info);
     }
 
     private void PlacePhone(EconomySimulation sim, string[] args)

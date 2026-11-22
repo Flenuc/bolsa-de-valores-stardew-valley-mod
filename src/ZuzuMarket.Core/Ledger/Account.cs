@@ -58,6 +58,13 @@ public static class SystemAccounts
     public const string PrimasLanzadas = "2.1.08";
     public const string ResultadosDerivadosPositivos = "4.2.04";
     public const string ResultadosDerivadosNegativos = "5.4.04";
+    public const string PrestamosBancarios = "2.1.03";
+    public const string CuotasAPagarBanco = "2.1.09";
+    public const string CaucionTomadora = "2.1.10";
+    public const string DeudaConcursal = "2.1.11";
+    public const string InteresesBancarios = "5.4.05";
+    public const string IngresosPorRemate = "4.9.02";
+    public const string QuitaConcursal = "4.9.03";
 
     public static IReadOnlyList<string> All { get; } = new[]
     {
@@ -67,7 +74,8 @@ public static class SystemAccounts
         SeguridadHigiene, Abl, Ganancias, InteresesYMultasFiscales, CuentaComitente, Acciones, Letras,
         CaucionesColocadas, ResultadosVentaPositivos, Dividendos, InteresesGanados, ResultadosVentaNegativos,
         ComisionesBursatiles, RetencionDividendos, Bonos, Garantias, PrimasCompradas, PrimasLanzadas,
-        ResultadosDerivadosPositivos, ResultadosDerivadosNegativos,
+        ResultadosDerivadosPositivos, ResultadosDerivadosNegativos, PrestamosBancarios, CuotasAPagarBanco,
+        CaucionTomadora, DeudaConcursal, InteresesBancarios, IngresosPorRemate, QuitaConcursal,
     };
 }
 

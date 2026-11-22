@@ -276,34 +276,9 @@ public sealed class TaxEngine
             return null;
         }
 
-        string payable = PayableAccount(o.Jurisdiction);
-        var args = Args(("id", o.Id.ToString(CultureInfo.InvariantCulture)), ("tax", o.Kind.ToString()));
-        long interest = MoneyRounding.ToGold(o.Interest);
-        if (interest > 0)
-        {
-            _ledger.Post(
-                Entity,
-                date,
-                new EntryText($"Intereses resarcitorios, boleta {o.Id}", "entry.tax-interest", args),
-                EntrySources.Impuesto,
-                JournalLine.ToDebit(SystemAccounts.InteresesYMultasFiscales, interest),
-                JournalLine.ToCredit(payable, interest));
-        }
-
-        o.Interest = interest;
-        long total = o.Principal + interest + o.Fine;
-        _ledger.Post(
-            Entity,
-            date,
-            new EntryText($"Pago de {o.Kind}, boleta {o.Id}", "entry.tax-paid", args),
-            EntrySources.Pago,
-            JournalLine.ToDebit(payable, total),
-            JournalLine.ToCredit(SystemAccounts.Caja, total));
-
-        o.Status = ObligationStatus.Paid;
-        o.PaidOn = date;
-        o.PaidAmount = total;
-        return total;
+        long total = o.Total;
+        long paid = PayFrom(obligationId, total, date, SystemAccounts.Caja);
+        return paid;
     }
 
     /// <summary>Cambia el régimen inmediatamente (comando de debug).</summary>
@@ -318,8 +293,101 @@ public sealed class TaxEngine
     {
         Jurisdiction.Arpv => SystemAccounts.ImpuestosAPagarArpv,
         Jurisdiction.Municipalidad => SystemAccounts.TasasAPagarMunicipalidad,
+        Jurisdiction.Banco => SystemAccounts.CuotasAPagarBanco,
+        Jurisdiction.Concurso => SystemAccounts.DeudaConcursal,
         _ => SystemAccounts.ImpuestosAPagarArf,
     };
+
+    /// <summary>Boletas exigibles hoy: vencidas o que vencen hoy, impagas.</summary>
+    public IReadOnlyList<TaxObligation> InCollection => Unpaid.Where(o => o.Status == ObligationStatus.InCollection).ToList();
+
+    /// <summary>
+    /// Paga hasta <paramref name="maxAmount"/> de una boleta desde <paramref name="sourceAccount"/> (Caja, cuenta comitente,
+    /// deudores por ventas embargados, remate…). Primero asienta los intereses devengados; aplica a multa y después a capital.
+    /// Devuelve lo pagado.
+    /// </summary>
+    public long PayFrom(long obligationId, decimal maxAmount, EconomicDate date, string sourceAccount)
+    {
+        TaxObligation? o = Find(obligationId);
+        if (o is null || o.IsPaid || maxAmount < 1)
+        {
+            return 0;
+        }
+
+        string payable = PayableAccount(o.Jurisdiction);
+        var args = Args(("id", o.Id.ToString(CultureInfo.InvariantCulture)), ("tax", o.Kind.ToString()));
+        long interest = MoneyRounding.ToGold(o.Interest);
+        if (interest > 0)
+        {
+            _ledger.Post(Entity, date, new EntryText($"Intereses resarcitorios, boleta {o.Id}", "entry.tax-interest", args), EntrySources.Impuesto,
+                JournalLine.ToDebit(SystemAccounts.InteresesYMultasFiscales, interest),
+                JournalLine.ToCredit(payable, interest));
+            o.Principal += interest;
+        }
+
+        o.Interest = 0;
+        long pay = Math.Min((long)Math.Floor(maxAmount), o.Principal + o.Fine);
+        if (pay <= 0)
+        {
+            return 0;
+        }
+
+        _ledger.Post(Entity, date, new EntryText($"Pago de {o.Kind}, boleta {o.Id}", "entry.tax-paid", args), EntrySources.Pago,
+            JournalLine.ToDebit(payable, pay),
+            JournalLine.ToCredit(sourceAccount, pay));
+
+        long fromFine = Math.Min(o.Fine, pay);
+        o.Fine -= fromFine;
+        o.Principal -= pay - fromFine;
+        o.PaidAmount += pay;
+        if (o.Principal + o.Fine <= 0)
+        {
+            o.Status = ObligationStatus.Paid;
+            o.PaidOn = date;
+        }
+
+        return pay;
+    }
+
+    /// <summary>Cierra una boleta sin pagarla: su saldo pasa a <paramref name="counterAccount"/> (deuda concursal o quita).</summary>
+    public long Close(long obligationId, EconomicDate date, string counterAccount)
+    {
+        TaxObligation? o = Find(obligationId);
+        if (o is null || o.IsPaid)
+        {
+            return 0;
+        }
+
+        string payable = PayableAccount(o.Jurisdiction);
+        long interest = MoneyRounding.ToGold(o.Interest);
+        if (interest > 0)
+        {
+            _ledger.Post(Entity, date, new EntryText($"Intereses resarcitorios, boleta {o.Id}", "entry.tax-interest", Args(("id", o.Id.ToString(CultureInfo.InvariantCulture)))), EntrySources.Impuesto,
+                JournalLine.ToDebit(SystemAccounts.InteresesYMultasFiscales, interest),
+                JournalLine.ToCredit(payable, interest));
+        }
+
+        long total = o.Principal + interest + o.Fine;
+        if (total > 0)
+        {
+            _ledger.Post(Entity, date, new EntryText($"Cierre de la boleta {o.Id}", "entry.obligation-closed", Args(("id", o.Id.ToString(CultureInfo.InvariantCulture)))), EntrySources.Ajuste,
+                JournalLine.ToDebit(payable, total),
+                JournalLine.ToCredit(counterAccount, total));
+        }
+
+        o.Interest = interest;
+        o.Status = ObligationStatus.Restructured;
+        o.PaidOn = date;
+        return total;
+    }
+
+    /// <summary>Crea una boleta de otro acreedor (banco, concurso…) ya asentada por quien la crea.</summary>
+    internal TaxObligation CreateExternal(TaxKind kind, FiscalPeriod period, long principal, EconomicDate date, EconomicDate due, List<TaxNotice> notices)
+    {
+        TaxObligation o = CreateObligation(kind, period, principal, date, Rules.DueDay, notices);
+        o.DueDate = due;
+        return o;
+    }
 
     // ───────────────────────────── Internos ─────────────────────────────
 

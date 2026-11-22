@@ -18,6 +18,12 @@ public enum Jurisdiction
 
     /// <summary>Municipalidad de Pelican Town.</summary>
     Municipalidad,
+
+    /// <summary>Banco de Zuzu (cuotas de préstamos).</summary>
+    Banco,
+
+    /// <summary>Masa de acreedores del concurso preventivo.</summary>
+    Concurso,
 }
 
 public enum TaxKind
@@ -29,6 +35,11 @@ public enum TaxKind
     IngresosBrutos,
     SeguridadHigiene,
     Abl,
+    CuotaPrestamo,
+    CuotaConcurso,
+
+    /// <summary>Deuda de prueba (comando de debug).</summary>
+    DeudaVarios,
 }
 
 public enum ObligationStatus
@@ -46,6 +57,9 @@ public enum ObligationStatus
     InCollection,
 
     Paid,
+
+    /// <summary>Cerrada por un concurso o una quiebra (pasó a la deuda concursal o se condonó).</summary>
+    Restructured,
 }
 
 public static class TaxKindExtensions
@@ -54,6 +68,8 @@ public static class TaxKindExtensions
     {
         TaxKind.IngresosBrutos => Taxation.Jurisdiction.Arpv,
         TaxKind.SeguridadHigiene or TaxKind.Abl => Taxation.Jurisdiction.Municipalidad,
+        TaxKind.CuotaPrestamo => Taxation.Jurisdiction.Banco,
+        TaxKind.CuotaConcurso => Taxation.Jurisdiction.Concurso,
         _ => Taxation.Jurisdiction.Arf,
     };
 }
@@ -93,7 +109,7 @@ public sealed class TaxObligation
 
     public Jurisdiction Jurisdiction => Kind.Jurisdiction();
 
-    public bool IsPaid => Status == ObligationStatus.Paid;
+    public bool IsPaid => Status is ObligationStatus.Paid or ObligationStatus.Restructured;
 
     /// <summary>Total a pagar hoy: capital + intereses (redondeados) + multa.</summary>
     public long Total => Principal + Money.MoneyRounding.ToGold(Interest) + Fine;

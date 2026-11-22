@@ -17,12 +17,15 @@
 
   { "code": "2.1.01", "name": "Deudas comerciales", "type": "Pasivo" },
   { "code": "2.1.02", "name": "Deudas fiscales (otras)", "type": "Pasivo" },
-  { "code": "2.1.03", "name": "Deudas financieras", "type": "Pasivo" },
+  { "code": "2.1.03", "name": "Préstamos bancarios (Banco de Zuzu)", "type": "Pasivo" },
   { "code": "2.1.04", "name": "IVA Débito Fiscal", "type": "Pasivo" },
   { "code": "2.1.05", "name": "Impuestos a pagar — ARF", "type": "Pasivo" },
   { "code": "2.1.06", "name": "Impuestos a pagar — ARPV", "type": "Pasivo" },
   { "code": "2.1.07", "name": "Tasas a pagar — Municipalidad", "type": "Pasivo" },
   { "code": "2.1.08", "name": "Primas de opciones lanzadas", "type": "Pasivo" },
+  { "code": "2.1.09", "name": "Cuotas a pagar — Banco de Zuzu", "type": "Pasivo" },
+  { "code": "2.1.10", "name": "Caución tomadora", "type": "Pasivo" },
+  { "code": "2.1.11", "name": "Deuda concursal", "type": "Pasivo" },
 
   { "code": "3.1.01", "name": "Capital", "type": "PatrimonioNeto" },
   { "code": "3.1.02", "name": "Resultados acumulados", "type": "PatrimonioNeto" },
@@ -33,6 +36,8 @@
   { "code": "4.2.03", "name": "Intereses ganados", "type": "Ingreso" },
   { "code": "4.2.04", "name": "Resultados por derivados (ganancia)", "type": "Ingreso" },
   { "code": "4.9.01", "name": "Ingresos no clasificados", "type": "Ingreso" },
+  { "code": "4.9.02", "name": "Ingresos por remate de bienes", "type": "Ingreso" },
+  { "code": "4.9.03", "name": "Quita concursal y condonaciones", "type": "Ingreso" },
 
   { "code": "5.1.01", "name": "Costo de mercaderías vendidas", "type": "Egreso" },
   { "code": "5.2.01", "name": "Gastos generales", "type": "Egreso" },
@@ -48,6 +53,7 @@
   { "code": "5.4.02", "name": "Intereses y multas fiscales", "type": "Egreso" },
   { "code": "5.4.03", "name": "Comisiones y derechos de mercado", "type": "Egreso" },
   { "code": "5.4.04", "name": "Resultados por derivados (pérdida)", "type": "Egreso" },
+  { "code": "5.4.05", "name": "Intereses bancarios y de caución", "type": "Egreso" },
   { "code": "5.9.01", "name": "Egresos no clasificados", "type": "Egreso" },
   { "code": "5.9.02", "name": "Diferencias de redondeo", "type": "Egreso" }
 ]

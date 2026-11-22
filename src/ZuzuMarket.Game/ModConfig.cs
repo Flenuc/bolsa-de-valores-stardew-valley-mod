@@ -19,6 +19,12 @@ internal sealed class ModConfig
     /// <summary>Tile del pueblo donde está el teléfono de Valle Inversiones (se mueve con <c>zuzu_place_phone</c>).</summary>
     public TilePosition PhonePosition { get; set; } = new() { X = 45, Y = 55 };
 
+    /// <summary>
+    /// Solo en dificultad Argentina: si es true, una quiebra puede rematar edificios de la granja (incluso con animales
+    /// adentro, que se pierden). Apagado por defecto.
+    /// </summary>
+    public bool AllowBuildingAuction { get; set; }
+
     /// <summary>Habilita comandos de depuración de consola, como <c>zuzu_reset</c> y <c>zuzu_event</c>.</summary>
     public bool DebugMode { get; set; }
 }

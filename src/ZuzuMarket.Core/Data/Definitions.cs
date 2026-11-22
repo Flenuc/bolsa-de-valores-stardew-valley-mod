@@ -1,4 +1,5 @@
 using ZuzuMarket.Core.Ledger;
+using ZuzuMarket.Core.Legal;
 using ZuzuMarket.Core.Markets;
 using ZuzuMarket.Core.Taxation;
 using ZuzuMarket.Core.Time;
@@ -246,8 +247,10 @@ public sealed class GameData
         IReadOnlyList<CompanyDefinition>? companies = null,
         MarketRules? markets = null,
         RatingRules? ratings = null,
-        IReadOnlyList<BondTemplate>? bondTemplates = null)
+        IReadOnlyList<BondTemplate>? bondTemplates = null,
+        LegalRules? legal = null)
     {
+        Legal = legal ?? new LegalRules();
         Ratings = ratings ?? new RatingRules();
         BondTemplates = bondTemplates ?? Array.Empty<BondTemplate>();
         Taxes = taxes ?? new TaxRules();
@@ -278,6 +281,8 @@ public sealed class GameData
     public RatingRules Ratings { get; }
 
     public IReadOnlyList<BondTemplate> BondTemplates { get; }
+
+    public LegalRules Legal { get; }
 
     public EventDefinition? FindEvent(string id) =>
         Events.FirstOrDefault(e => string.Equals(e.Id, id, StringComparison.OrdinalIgnoreCase));

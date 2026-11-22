@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ZuzuMarket.Core.Ledger;
+using ZuzuMarket.Core.Legal;
 using ZuzuMarket.Core.Markets;
 using ZuzuMarket.Core.Taxation;
 
@@ -34,6 +35,7 @@ public static class GameDataLoader
     public const string MarketsFile = "markets.json";
     public const string RatingsFile = "ratings.json";
     public const string BondsFile = "bonds.json";
+    public const string LegalFile = "legal.json";
 
     public static IReadOnlyList<string> RequiredDifficulties { get; } = new[] { "casual", "realista", "argentina" };
 
@@ -69,15 +71,16 @@ public static class GameDataLoader
         string? markets = Read(MarketsFile);
         string? ratings = Read(RatingsFile);
         string? bonds = Read(BondsFile);
-        if (accounts is null || commodities is null || difficulties is null || events is null || taxes is null || companies is null || markets is null || ratings is null || bonds is null)
+        string? legal = Read(LegalFile);
+        if (accounts is null || commodities is null || difficulties is null || events is null || taxes is null || companies is null || markets is null || ratings is null || bonds is null || legal is null)
         {
             return new DataLoadResult(null, errors);
         }
 
-        return LoadFromJson(accounts, commodities, difficulties, events, taxes, companies, markets, ratings, bonds);
+        return LoadFromJson(accounts, commodities, difficulties, events, taxes, companies, markets, ratings, bonds, legal);
     }
 
-    public static DataLoadResult LoadFromJson(string accountsJson, string commoditiesJson, string difficultiesJson, string eventsJson = "[]", string? taxesJson = null, string? companiesJson = null, string? marketsJson = null, string? ratingsJson = null, string? bondsJson = null)
+    public static DataLoadResult LoadFromJson(string accountsJson, string commoditiesJson, string difficultiesJson, string eventsJson = "[]", string? taxesJson = null, string? companiesJson = null, string? marketsJson = null, string? ratingsJson = null, string? bondsJson = null, string? legalJson = null)
     {
         var errors = new List<string>();
         List<AccountDefinition>? accounts = Deserialize<List<AccountDefinition>>(accountsJson, AccountsFile, errors);
@@ -89,7 +92,8 @@ public static class GameDataLoader
         MarketRules? markets = marketsJson is null ? new MarketRules() : Deserialize<MarketRules>(marketsJson, MarketsFile, errors);
         RatingRules? ratings = ratingsJson is null ? new RatingRules() : Deserialize<RatingRules>(ratingsJson, RatingsFile, errors);
         List<BondTemplate>? bonds = bondsJson is null ? new List<BondTemplate>() : Deserialize<List<BondTemplate>>(bondsJson, BondsFile, errors);
-        if (accounts is null || commodities is null || difficulties is null || events is null || taxes is null || companies is null || markets is null || ratings is null || bonds is null)
+        LegalRules? legal = legalJson is null ? new LegalRules() : Deserialize<LegalRules>(legalJson, LegalFile, errors);
+        if (accounts is null || commodities is null || difficulties is null || events is null || taxes is null || companies is null || markets is null || ratings is null || bonds is null || legal is null)
         {
             return new DataLoadResult(null, errors);
         }
@@ -115,6 +119,10 @@ public static class GameDataLoader
         }
 
         ValidateBonds(bonds, companies, errors);
+        if (legalJson is not null)
+        {
+            ValidateLegal(legal, errors);
+        }
 
         if (errors.Count > 0)
         {
@@ -122,7 +130,7 @@ public static class GameDataLoader
         }
 
         var chart = new ChartOfAccounts(accounts.Select(a => new Account(a.Code, a.Name, a.Type)));
-        return new DataLoadResult(new GameData(chart, commodities, difficulties, events, taxes, companies, markets, ratings, bonds), errors);
+        return new DataLoadResult(new GameData(chart, commodities, difficulties, events, taxes, companies, markets, ratings, bonds, legal), errors);
     }
 
     private static T? Deserialize<T>(string json, string file, List<string> errors)
@@ -420,6 +428,24 @@ public static class GameDataLoader
             {
                 errors.Add($"{BondsFile}: {b.Prefix} tiene plazo, amortización o cupón inválidos.");
             }
+        }
+    }
+
+    private static void ValidateLegal(LegalRules l, List<string> errors)
+    {
+        if (l.EmbargoAfterDays < 1 || l.SeizureAfterDays < l.EmbargoAfterDays || l.BankruptcyAfterDays < l.SeizureAfterDays || l.SeizureEveryDays < 1)
+        {
+            errors.Add($"{LegalFile}: los plazos deben cumplir 1 <= embargo <= secuestro <= quiebra.");
+        }
+
+        if (l.IncomeGarnishRate is < 0 or > 1 || l.SeizureValueRate is < 0 or > 1 || l.BuildingAuctionRate is < 0 or > 1 || l.RepoMaxRatio is < 0 or > 1)
+        {
+            errors.Add($"{LegalFile}: porcentajes fuera de [0, 1].");
+        }
+
+        if (l.ConcursoInstallments < 1 || l.InhabilitationSeasons < 0 || l.LoanTerms.Count == 0 || l.RepoTerms.Count == 0)
+        {
+            errors.Add($"{LegalFile}: cuotas del concurso, plazos de préstamos y de caución deben ser válidos.");
         }
     }
 

@@ -30,6 +30,8 @@ internal sealed class ModEntry : Mod
     private BrokerMail? _brokerMail;
     private PhoneService? _phone;
     private TerminalActions? _terminalActions;
+    private SeizureBridge? _seizure;
+    private LegalMail? _legalMail;
     private EconomySimulation? _simulation;
 
     /// <summary>Si el estado guardado estaba dañado, no se guarda nada encima para no perderlo.</summary>
@@ -89,6 +91,9 @@ internal sealed class ModEntry : Mod
         _brokerMail = new BrokerMail(helper, ModManifest, _config, _taxMail);
         _phone = new PhoneService(Monitor, _config);
         var silo = new SiloBridge(() => Simulation);
+        _seizure = new SeizureBridge(Monitor);
+        _legalMail = new LegalMail(helper, ModManifest, _config, _taxMail);
+        helper.Events.Content.AssetRequested += _legalMail.OnAssetRequested;
         _terminalActions = new TerminalActions(_brokerMail, _money, silo);
         helper.Events.Display.MenuChanged += silo.OnMenuChanged;
         var objects = new ModObjects(helper.Translation);
@@ -166,13 +171,15 @@ internal sealed class ModEntry : Mod
             FarmBridge.Snapshot(),
             _config.AutoDebit ? Game1.player.Money : null);
 
-        // El débito automático ya se asentó día por día: se descuenta el oro antes de conciliar.
-        if (info.AutoDebitTotal > 0)
+        // El débito automático y el embargo de ingresos ya se asentaron: se descuenta el oro antes de conciliar.
+        long debited = info.AutoDebitTotal + (long)Math.Floor(info.Legal.Garnished);
+        if (debited > 0)
         {
-            Game1.player.Money -= (int)info.AutoDebitTotal;
+            Game1.player.Money = Math.Max(0, Game1.player.Money - (int)debited);
         }
 
         MoneyBridge.Reconcile(Simulation, Helper.Translation.Get("entry.reconcile-day-start"));
+        ApplyLegal(info);
 
         // El texto de las cartas y el costo de las construcciones dependen del estado del día.
         Helper.GameContent.InvalidateCache(BuildingInflation.Asset);
@@ -227,6 +234,42 @@ internal sealed class ModEntry : Mod
     {
         Simulation = null;
         _loadFailed = false;
+    }
+
+    /// <summary>Secuestro de bienes, remate de edificios y cierre de la quiebra (los objetos los saca el juego).</summary>
+    private void ApplyLegal(DayStartedInfo info)
+    {
+        var notices = new List<ZuzuMarket.Core.Legal.LegalNotice>(info.Legal.Notices);
+        ZuzuMarket.Core.Legal.LegalRules rules = Simulation!.Data.Legal;
+        if (info.Legal.SeizureRequest >= 1)
+        {
+            decimal value = _seizure!.SeizeItems(info.Legal.SeizureRequest, rules.SeizureValueRate);
+            if (value > 0)
+            {
+                Simulation.ApplySeizure(value);
+                notices.Add(new ZuzuMarket.Core.Legal.LegalNotice(ZuzuMarket.Core.Legal.LegalNoticeKind.GoodsSeized, Simulation.CurrentDate, value));
+            }
+        }
+
+        if (info.Legal.BankruptcyDeclared)
+        {
+            decimal remaining = Simulation.Legal.DebtInCollection;
+            if (remaining >= 1 && _config.AllowBuildingAuction && Simulation.Legal.HasEmbargo(ZuzuMarket.Core.Legal.LegalEngine.Embargo_Buildings))
+            {
+                var auctioned = new List<string>();
+                decimal value = _seizure!.AuctionBuildings(remaining, rules.BuildingAuctionRate, auctioned);
+                if (value > 0)
+                {
+                    Simulation.ApplySeizure(value);
+                    notices.Add(new ZuzuMarket.Core.Legal.LegalNotice(ZuzuMarket.Core.Legal.LegalNoticeKind.GoodsSeized, Simulation.CurrentDate, value, string.Join(", ", auctioned)));
+                }
+            }
+
+            notices.AddRange(Simulation.FinalizeBankruptcy().Notices);
+        }
+
+        _legalMail!.Publish(notices);
+        _money!.Reset();
     }
 
     /// <summary>Teléfono de Valle Inversiones o Terminal Bursátil → abre la Terminal.</summary>

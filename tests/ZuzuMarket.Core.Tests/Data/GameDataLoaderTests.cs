@@ -107,7 +107,7 @@ public class GameDataLoaderTests
     public void MissingDirectory_IsReported()
     {
         DataLoadResult result = GameDataLoader.LoadFromDirectory(Path.Combine(Path.GetTempPath(), "zuzu-no-existe"));
-        Assert.Equal(9, result.Errors.Count);
+        Assert.Equal(10, result.Errors.Count);
     }
 
     [Fact]

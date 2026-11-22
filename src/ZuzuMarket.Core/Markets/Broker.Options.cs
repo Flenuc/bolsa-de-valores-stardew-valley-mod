@@ -100,7 +100,7 @@ public sealed partial class Broker
         decimal marginAfter = RequiredMargin(date, timeOfDay, series.Id, after);
 
         decimal cashNeeded = commission + iva + Math.Max(0, marginAfter - MarginBalance) + (side == TradeSide.Buy ? notional : -notional);
-        TradeError error = ValidateDerivative(quantity, date, timeOfDay, cashNeeded);
+        TradeError error = ValidateDerivative(quantity, date, timeOfDay, cashNeeded, Math.Abs(after) > Math.Abs(current));
         return new DerivativeQuote(InstrumentKind.Option, series.Id, side, quantity, unit, notional, commission, iva, marginAfter, error);
     }
 

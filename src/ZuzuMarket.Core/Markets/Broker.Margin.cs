@@ -198,7 +198,7 @@ public sealed partial class Broker
         ReleaseAllMargin(date);
     }
 
-    private TradeError ValidateDerivative(long quantity, EconomicDate date, int timeOfDay, decimal cashNeeded)
+    private TradeError ValidateDerivative(long quantity, EconomicDate date, int timeOfDay, decimal cashNeeded, bool opening = false)
     {
         if (!IsOpen)
         {
@@ -210,9 +210,14 @@ public sealed partial class Broker
             return TradeError.InvalidQuantity;
         }
 
-        if (!IsMarketOpen(date, timeOfDay))
+        if (!_forcing && !IsMarketOpen(date, timeOfDay))
         {
             return TradeError.MarketClosed;
+        }
+
+        if (opening && !_forcing && IsInhibited())
+        {
+            return TradeError.Inhibited;
         }
 
         return cashNeeded > Cash ? TradeError.InsufficientFunds : TradeError.None;
