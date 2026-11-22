@@ -70,6 +70,9 @@ public enum LegalEventKind
     Embargo,
     Concurso,
     Bankruptcy,
+
+    /// <summary>Quebró una sociedad del jugador (responsabilidad limitada, pero mancha el historial).</summary>
+    CompanyBankruptcy,
 }
 
 public sealed record LegalEvent(EconomicDate Date, LegalEventKind Kind);

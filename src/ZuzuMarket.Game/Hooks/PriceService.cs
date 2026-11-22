@@ -12,10 +12,11 @@ internal static class PriceService
     public static EconomySimulation? Simulation { get; set; }
 
     /// <summary>Multiplicador del precio de venta vanilla de un objeto (1 si la simulación no está activa).</summary>
-    public static double SellMultiplier(string itemId) => Simulation?.Market.GetMultiplierForItem(itemId) ?? 1.0;
+    /// <remarks>Incluye el precio FAS (retenciones) y la bonificación de tus sociedades.</remarks>
+    public static double SellMultiplier(string itemId, int category) => Simulation?.SellMultiplier(itemId, category) ?? 1.0;
 
-    /// <summary>Multiplicador de los precios de compra en tiendas (IPC).</summary>
-    public static double PurchaseMultiplier => Simulation?.Inflation.Index ?? 1.0;
+    /// <summary>Multiplicador de los precios de compra de una tienda (IPC y, si importa, aranceles).</summary>
+    public static double PurchaseMultiplier(string? shopId) => Simulation?.PurchaseMultiplier(shopId) ?? 1.0;
 
     public static int Apply(int price, double multiplier) =>
         price <= 0 || multiplier == 1.0 ? price : Math.Max(1, (int)Math.Round(price * multiplier, MidpointRounding.AwayFromZero));

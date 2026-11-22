@@ -135,12 +135,24 @@ public sealed class GananciasRules
     /// <summary>Fracción del impuesto determinado que representa cada anticipo.</summary>
     public decimal AdvanceFraction { get; set; } = 0.25m;
 
+    /// <summary>Escala de sociedades (25/30/35%): tramos sobre el resultado anual, escalados por IPC.</summary>
+    public List<TaxBracket> CompanyBrackets { get; set; } = new()
+    {
+        new TaxBracket { UpTo = 100_000m, Rate = 0.25m },
+        new TaxBracket { UpTo = 1_000_000m, Rate = 0.30m },
+        new TaxBracket { UpTo = null, Rate = 0.35m },
+    };
+
+    public decimal CompanyTax(decimal taxable, decimal scale) => Scale(CompanyBrackets, taxable, scale);
+
+    public decimal ProgressiveTax(decimal taxable, decimal scale) => Scale(Brackets, taxable, scale);
+
     /// <summary>Impuesto según la escala progresiva; los límites de los tramos se escalan por <paramref name="scale"/> (IPC).</summary>
-    public decimal ProgressiveTax(decimal taxable, decimal scale)
+    private static decimal Scale(List<TaxBracket> brackets, decimal taxable, decimal scale)
     {
         decimal tax = 0;
         decimal lower = 0;
-        foreach (TaxBracket bracket in Brackets)
+        foreach (TaxBracket bracket in brackets)
         {
             if (taxable <= lower)
             {

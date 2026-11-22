@@ -15,7 +15,7 @@ internal static class BuildingInflation
             return;
         }
 
-        double multiplier = PriceService.PurchaseMultiplier;
+        double multiplier = PriceService.PurchaseMultiplier(null);
         if (multiplier == 1.0)
         {
             return;

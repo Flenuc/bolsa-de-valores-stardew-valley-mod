@@ -81,6 +81,10 @@ internal sealed class ConsoleCommands
         _helper.ConsoleCommands.Add("zuzu_credit", I18n.Get("cmd.credit.help"), WithSimulation(CreditCmd));
         _helper.ConsoleCommands.Add("zuzu_legal", I18n.Get("cmd.legal.help"), WithSimulation(LegalCmd));
         _helper.ConsoleCommands.Add("zuzu_debt", I18n.Get("cmd.debt.help"), WithSimulation(DebtCmd));
+        _helper.ConsoleCommands.Add("zuzu_companies", I18n.Get("cmd.companies.help"), WithSimulation(CompaniesCmd));
+        _helper.ConsoleCommands.Add("zuzu_company", I18n.Get("cmd.company.help"), WithSimulation(CompanyCmd));
+        _helper.ConsoleCommands.Add("zuzu_exports", I18n.Get("cmd.exports.help"), WithSimulation(ExportsCmd));
+        _helper.ConsoleCommands.Add("zuzu_unlock_companies", I18n.Get("cmd.unlock-companies.help"), WithSimulation(UnlockCompaniesCmd));
     }
 
     private Action<string, string[]> WithSimulation(Action<EconomySimulation, string[]> action) => (_, args) =>
@@ -779,6 +783,107 @@ internal sealed class ConsoleCommands
 
         sim.CreateTestDebt(amount);
         _monitor.Log(I18n.Get("cmd.debt.done", new { amount = Money(amount) }), LogLevel.Info);
+    }
+
+    private void CompaniesCmd(EconomySimulation sim, string[] args)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine(I18n.Get("cmd.companies.title"));
+        foreach (ZuzuMarket.Core.Companies.CompanyTypeDefinition t in sim.Data.PlayerCompanies.Types)
+        {
+            bool unlocked = sim.Companies.State.UnlockAll || ZuzuMarket.Game.Bridges.CompanyUnlocks.IsUnlocked(t);
+            sb.AppendLine($"  {ZuzuMarket.Game.Content.CompanyMail.TypeName(I18n, t.Id)}: {(unlocked ? I18n.Get("cmd.companies.unlocked") : I18n.Get($"company.unlock.{t.Unlock}", new { machines = ZuzuMarket.Game.Bridges.CompanyUnlocks.MachinesNeeded }))}");
+        }
+
+        foreach (ZuzuMarket.Core.Companies.CompanyState co in sim.Companies.State.Companies)
+        {
+            string status = co.Active ? I18n.Get("cmd.companies.active") : co.Bankrupt ? I18n.Get("cmd.companies.bankrupt") : I18n.Get("cmd.companies.dissolved");
+            sb.AppendLine(I18n.Get("cmd.companies.line", new
+            {
+                id = co.Id,
+                type = ZuzuMarket.Game.Content.CompanyMail.TypeName(I18n, co.Type),
+                form = co.Form,
+                cuit = co.Cuit,
+                status,
+                rating = co.Rating,
+                cash = Money(sim.Companies.Cash(co)),
+                revenue = Money(sim.Companies.AnnualRevenue(co)),
+            }));
+        }
+
+        _monitor.Log(sb.ToString().TrimEnd(), LogLevel.Info);
+    }
+
+    private void CompanyCmd(EconomySimulation sim, string[] args)
+    {
+        if (args.Length == 0 || sim.Companies.Find(args[0]) is not { } co)
+        {
+            _monitor.Log(I18n.Get("cmd.company.usage"), LogLevel.Info);
+            return;
+        }
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"=== {co.Id} · {ZuzuMarket.Game.Content.CompanyMail.TypeName(I18n, co.Type)} {co.Form} · CUIT {co.Cuit} ===");
+        sb.AppendLine(I18n.Get("cmd.company.summary", new
+        {
+            cash = Money(sim.Companies.Cash(co)),
+            capital = Money(sim.Companies.CapitalOf(co)),
+            retained = Money(sim.Companies.RetainedEarnings(co)),
+            distributable = Money(sim.Companies.Distributable(co)),
+            contributed = Money(co.Contributed),
+            dividends = Money(co.DividendsPaid),
+        }));
+        foreach (TrialBalanceRow row in sim.Ledger.GetTrialBalance(co.Id).Where(r => r.Balance != 0))
+        {
+            sb.AppendLine($"  {row.Account.Code} {row.Account.Name,-45} {Money(row.Balance),15}");
+        }
+
+        foreach (TaxObligation o in sim.Companies.TaxesOf(co).Unpaid.OrderBy(o => o.DueDate))
+        {
+            sb.AppendLine("  " + TaxText.Line(I18n, o));
+        }
+
+        _monitor.Log(sb.ToString().TrimEnd(), LogLevel.Info);
+    }
+
+    private void ExportsCmd(EconomySimulation sim, string[] args)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine(I18n.Get("cmd.exports.title"));
+        foreach (CommodityDefinition commodity in sim.Data.Commodities)
+        {
+            decimal duty = sim.Data.Trade.ExportDuty(commodity.Id, sim.Difficulty.TradeDuties);
+            sb.AppendLine(I18n.Get("cmd.exports.duty", new
+            {
+                name = commodity.Name,
+                duty = Formatting.Percent(I18n, (double)duty),
+                fas = Formatting.Percent(I18n, (double)(duty * sim.Data.Trade.FasPassThrough)),
+            }));
+        }
+
+        foreach (SiloItem item in sim.Companies.State.ExportContainer)
+        {
+            sb.AppendLine($"  {item.ItemId} ×{item.Stack} (calidad {item.Quality})");
+        }
+
+        foreach (ZuzuMarket.Core.Trade.ExportReceivable r in sim.Companies.State.Receivables)
+        {
+            sb.AppendLine(I18n.Get("cmd.exports.receivable", new { amount = Money(r.Amount), date = GameDateBridge.Format(I18n, r.CollectOn) }));
+        }
+
+        _monitor.Log(sb.ToString().TrimEnd(), LogLevel.Info);
+    }
+
+    private void UnlockCompaniesCmd(EconomySimulation sim, string[] args)
+    {
+        if (!_config.DebugMode)
+        {
+            _monitor.Log(I18n.Get("cmd.debug-only", new { command = "zuzu_unlock_companies" }), LogLevel.Warn);
+            return;
+        }
+
+        sim.Companies.State.UnlockAll = true;
+        _monitor.Log(I18n.Get("cmd.unlock-companies.done"), LogLevel.Info);
     }
 
     private void PlacePhone(EconomySimulation sim, string[] args)

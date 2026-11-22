@@ -40,6 +40,9 @@ public enum TaxKind
 
     /// <summary>Deuda de prueba (comando de debug).</summary>
     DeudaVarios,
+
+    /// <summary>Tasa de fiscalización de sociedades (Inspección de Personas Jurídicas, provincial).</summary>
+    TasaFiscalizacion,
 }
 
 public enum ObligationStatus
@@ -66,7 +69,7 @@ public static class TaxKindExtensions
 {
     public static Jurisdiction Jurisdiction(this TaxKind kind) => kind switch
     {
-        TaxKind.IngresosBrutos => Taxation.Jurisdiction.Arpv,
+        TaxKind.IngresosBrutos or TaxKind.TasaFiscalizacion => Taxation.Jurisdiction.Arpv,
         TaxKind.SeguridadHigiene or TaxKind.Abl => Taxation.Jurisdiction.Municipalidad,
         TaxKind.CuotaPrestamo => Taxation.Jurisdiction.Banco,
         TaxKind.CuotaConcurso => Taxation.Jurisdiction.Concurso,
@@ -131,6 +134,9 @@ public sealed class PeriodAccumulator
     public decimal NetPurchases { get; set; }
 
     public decimal NetSales => NetSalesByActivity.Values.Sum();
+
+    /// <summary>Exportaciones FOB del período (fuera de IIBB e IVA).</summary>
+    public decimal Exports { get; set; }
 }
 
 /// <summary>Acumulados del ejercicio para Ganancias (solo lo que ocurrió como Responsable Inscripto).</summary>
@@ -146,6 +152,9 @@ public sealed class YearAccumulator
 
     /// <summary>IIBB, Seguridad e Higiene y ABL emitidos en el año (deducibles).</summary>
     public decimal DeductibleTaxes { get; set; }
+
+    /// <summary>Otros gastos deducibles (tasas societarias, derechos de exportación).</summary>
+    public decimal OtherExpenses { get; set; }
 }
 
 public sealed record PeriodRevenue(FiscalPeriod Period, decimal NetSales);

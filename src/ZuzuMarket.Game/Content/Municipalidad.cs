@@ -45,7 +45,7 @@ internal sealed class Municipalidad
         }
 
         // Sin boletas pendientes, el libro de finanzas del pueblo responde como siempre.
-        if (!sim.Taxes.Unpaid.Any())
+        if (!sim.AllUnpaid.Any())
         {
             return;
         }
@@ -56,7 +56,7 @@ internal sealed class Municipalidad
 
     public void OpenDesk(EconomySimulation sim)
     {
-        List<TaxObligation> unpaid = sim.Taxes.Unpaid.OrderBy(o => o.DueDate).ThenBy(o => o.Id).ToList();
+        List<TaxObligation> unpaid = sim.AllUnpaid.Select(x => x.Obligation).OrderBy(o => o.DueDate).ThenBy(o => o.Id).ToList();
         if (unpaid.Count == 0)
         {
             Game1.drawObjectDialogue(I18n.Get("desk.nothing"));
@@ -125,7 +125,7 @@ internal sealed class Municipalidad
                 continue;
             }
 
-            if (Game1.player.Money < o.Total)
+            if (Game1.player.Money < sim.PocketNeeded(o.Id))
             {
                 short_ = true;
                 break;

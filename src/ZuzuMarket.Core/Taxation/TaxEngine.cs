@@ -21,24 +21,33 @@ public sealed record SoldItem(string ItemId, int Category, int Units, long Gross
 /// <summary>
 /// Motor tributario (§9 del diseño): registra ventas y compras con su IVA, emite las boletas de cada período,
 /// liquida Ganancias anual, recategoriza el Monotributo y gestiona la mora.
-/// Todo pasa por el libro contable de la entidad <see cref="LedgerEntities.Jugador"/>.
+/// Cada contribuyente (el jugador o una de sus sociedades) tiene su propio motor sobre su propio libro.
 /// </summary>
 public sealed class TaxEngine
 {
-    private const string Entity = LedgerEntities.Jugador;
-
     private readonly GameData _data;
     private readonly TaxState _s;
     private readonly GeneralLedger _ledger;
     private readonly DifficultyDefinition _difficulty;
+    private readonly Func<long>? _nextId;
 
-    public TaxEngine(GameData data, TaxState state, GeneralLedger ledger, DifficultyDefinition difficulty)
+    /// <param name="entity">Entidad del libro (el jugador o una sociedad).</param>
+    /// <param name="company">Sociedad: siempre Responsable Inscripto, sin ABL, Ganancias con la escala de sociedades.</param>
+    /// <param name="nextId">Numerador compartido de boletas (para que los ids no se repitan entre contribuyentes).</param>
+    public TaxEngine(GameData data, TaxState state, GeneralLedger ledger, DifficultyDefinition difficulty, string entity = LedgerEntities.Jugador, bool company = false, Func<long>? nextId = null)
     {
         _data = data;
         _s = state;
         _ledger = ledger;
         _difficulty = difficulty;
+        Entity = entity;
+        IsCompany = company;
+        _nextId = nextId;
     }
+
+    public string Entity { get; }
+
+    public bool IsCompany { get; }
 
     public TaxRules Rules => _data.Taxes;
 
@@ -73,11 +82,11 @@ public sealed class TaxEngine
 
         _s.Started = true;
         _s.RegisteredOn = date;
-        _s.Regime = TaxRegime.Monotributo;
+        _s.Regime = IsCompany ? TaxRegime.ResponsableInscripto : TaxRegime.Monotributo;
         _s.Category = Rules.Monotributo.Categories.Count > 0 ? Rules.Monotributo.Categories[0].Id : "";
         _s.Current = new PeriodAccumulator { Period = date.FiscalPeriod, Regime = _s.Regime };
         _s.Year = new YearAccumulator { Year = date.Year };
-        notices.Add(new TaxNotice(TaxNoticeKind.Registered, date, Detail: _s.Category));
+        notices.Add(new TaxNotice(TaxNoticeKind.Registered, date, Detail: IsCompany ? "RI" : _s.Category));
         IssueForCurrentPeriod(date, farm, ipc, notices);
         return notices;
     }
@@ -280,6 +289,64 @@ public sealed class TaxEngine
         long paid = PayFrom(obligationId, total, date, SystemAccounts.Caja);
         return paid;
     }
+
+    /// <summary>Sociedades: paga lo que vence (o venció) con su propia caja, mientras alcance.</summary>
+    public long PayDueFromCash(EconomicDate date)
+    {
+        long total = 0;
+        foreach (TaxObligation o in DueOn(date))
+        {
+            decimal cash = _ledger.GetBalance(Entity, SystemAccounts.Caja);
+            if (cash < o.Total)
+            {
+                break;
+            }
+
+            total += PayFrom(o.Id, o.Total, date, SystemAccounts.Caja);
+        }
+
+        return total;
+    }
+
+    /// <summary>
+    /// Exportación (sin IVA ni Ingresos Brutos): venta FOB a cobrar, neta de los derechos de exportación.
+    /// Cuenta para Ganancias; los derechos son deducibles.
+    /// </summary>
+    public void RecordExport(EconomicDate date, decimal fob, decimal duty, EntryText text)
+    {
+        if (fob <= 0)
+        {
+            return;
+        }
+
+        var lines = new List<JournalLine> { JournalLine.ToDebit(SystemAccounts.ExportacionesACobrar, fob - duty) };
+        if (duty > 0)
+        {
+            lines.Add(JournalLine.ToDebit(SystemAccounts.DerechosDeExportacion, duty));
+        }
+
+        lines.Add(JournalLine.ToCredit(SystemAccounts.Ventas, fob));
+        _ledger.Post(Entity, date, text, EntrySources.Venta, lines.ToArray());
+        _s.Year.HadResponsableInscripto = true;
+        _s.Year.NetSales += fob;
+        _s.Year.OtherExpenses += duty;
+        _s.Current.Exports += fob;
+    }
+
+    /// <summary>Emite una tasa de otro organismo (p. ej. fiscalización de sociedades) como boleta.</summary>
+    public TaxObligation? IssueFee(TaxKind kind, decimal amount, EconomicDate date, string expenseAccount, List<TaxNotice> notices)
+    {
+        TaxObligation? o = Issue(kind, date.FiscalPeriod, amount, date, Rules.DueDay, expenseAccount, notices);
+        if (o is not null)
+        {
+            _s.Year.OtherExpenses += o.Principal;
+        }
+
+        return o;
+    }
+
+    /// <summary>Gasto deducible de Ganancias que no es una compra en tienda (tasas societarias, derechos de exportación).</summary>
+    public void AddDeductibleExpense(decimal amount) => _s.Year.OtherExpenses += amount;
 
     /// <summary>Cambia el régimen inmediatamente (comando de debug).</summary>
     public TaxNotice SetRegime(TaxRegime regime, EconomicDate date)
@@ -508,8 +575,9 @@ public sealed class TaxEngine
         }
 
         GananciasRules rules = Rules.Ganancias;
-        decimal taxable = year.NetSales - year.NetPurchases - year.DeductibleTaxes - (rules.NonTaxableMinimum * ipc);
-        long tax = taxable > 0 ? MoneyRounding.ToGold(rules.ProgressiveTax(taxable, ipc) * Burden) : 0;
+        decimal taxable = year.NetSales - year.NetPurchases - year.DeductibleTaxes - year.OtherExpenses - (IsCompany ? 0 : rules.NonTaxableMinimum * ipc);
+        long tax = taxable <= 0 ? 0
+            : MoneyRounding.ToGold((IsCompany ? rules.CompanyTax(taxable, ipc) : rules.ProgressiveTax(taxable, ipc)) * Burden);
         if (tax <= 0)
         {
             return;
@@ -556,7 +624,7 @@ public sealed class TaxEngine
             Issue(TaxKind.Monotributo, period, category.Fee * ipc * Burden, date, Rules.DueDay, SystemAccounts.Monotributo, notices);
         }
 
-        if (Issue(TaxKind.Abl, period, Rules.Abl.For(farm) * ipc * Burden, date, Rules.DueDay, SystemAccounts.Abl, notices) is { } abl)
+        if (!IsCompany && Issue(TaxKind.Abl, period, Rules.Abl.For(farm) * ipc * Burden, date, Rules.DueDay, SystemAccounts.Abl, notices) is { } abl)
         {
             _s.Year.DeductibleTaxes += abl.Principal;
         }
@@ -611,7 +679,7 @@ public sealed class TaxEngine
 
         var obligation = new TaxObligation
         {
-            Id = _s.NextObligationId++,
+            Id = _nextId?.Invoke() ?? _s.NextObligationId++,
             Kind = kind,
             Period = period,
             Principal = principal,

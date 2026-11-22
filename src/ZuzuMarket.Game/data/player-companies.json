@@ -1,0 +1,30 @@
+// Sociedades que podés crear (§8.2 de docs/DISENO.md). Cada una tiene su propio libro, CUIT e impuestos
+// (siempre Responsable Inscripto: IVA, Ingresos Brutos, Seguridad e Higiene y Ganancias de sociedades).
+// Las ventas de las actividades que absorbe (las de taxes.json) se le asientan a ella.
+// unlock: none · mine40 (nivel 40 de la mina) · fishing6 (pesca 6) · machines5 (5 barriles, conserveras o
+// prensas de queso en la granja) · year2 (desde el año 2).
+// priceBonus: mejor precio de venta del rubro (venta directa, sin acopiador).
+{
+  "types": [
+    { "id": "agropecuaria",     "activities": ["agro"],      "unlock": "none",      "priceBonus": 0.05 },
+    { "id": "minera",           "activities": ["mineria"],   "unlock": "mine40",    "priceBonus": 0.08 },
+    { "id": "pesquera",         "activities": ["pesca"],     "unlock": "fishing6",  "priceBonus": 0.08 },
+    { "id": "industrial",       "activities": ["artesanal"], "unlock": "machines5", "priceBonus": 0.06 },
+    { "id": "comercializadora", "activities": [],            "unlock": "year2",     "priceBonus": 0, "exports": true }
+  ],
+
+  // Formas societarias: capital mínimo y tasa de inscripción (oro del año 1, se indexan por el IPC).
+  "forms": [
+    { "id": "SRL", "minimumCapital": 5000,  "registrationFee": 500 },
+    { "id": "SA",  "minimumCapital": 20000, "registrationFee": 1500, "canListOnMarket": true }
+  ],
+
+  // Transformar una S.R.L. en S.A. (además de completar el capital mínimo).
+  "transformationFee": 1000,
+
+  // Tasa de fiscalización de la Inspección de Personas Jurídicas, por estación.
+  "seasonalFee": 100,
+
+  // Días con deudas en gestión de cobro hasta la quiebra de la sociedad (÷ "bankruptcySpeed" de la dificultad).
+  "insolvencyAfterDays": 28
+}

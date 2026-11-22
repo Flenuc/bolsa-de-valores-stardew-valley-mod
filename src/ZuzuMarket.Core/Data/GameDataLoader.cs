@@ -1,7 +1,9 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using ZuzuMarket.Core.Companies;
 using ZuzuMarket.Core.Ledger;
 using ZuzuMarket.Core.Legal;
+using ZuzuMarket.Core.Trade;
 using ZuzuMarket.Core.Markets;
 using ZuzuMarket.Core.Taxation;
 
@@ -36,6 +38,8 @@ public static class GameDataLoader
     public const string RatingsFile = "ratings.json";
     public const string BondsFile = "bonds.json";
     public const string LegalFile = "legal.json";
+    public const string PlayerCompaniesFile = "player-companies.json";
+    public const string TradeFile = "trade.json";
 
     public static IReadOnlyList<string> RequiredDifficulties { get; } = new[] { "casual", "realista", "argentina" };
 
@@ -72,15 +76,18 @@ public static class GameDataLoader
         string? ratings = Read(RatingsFile);
         string? bonds = Read(BondsFile);
         string? legal = Read(LegalFile);
-        if (accounts is null || commodities is null || difficulties is null || events is null || taxes is null || companies is null || markets is null || ratings is null || bonds is null || legal is null)
+        string? playerCompanies = Read(PlayerCompaniesFile);
+        string? trade = Read(TradeFile);
+        if (accounts is null || commodities is null || difficulties is null || events is null || taxes is null || companies is null || markets is null || ratings is null || bonds is null || legal is null
+            || playerCompanies is null || trade is null)
         {
             return new DataLoadResult(null, errors);
         }
 
-        return LoadFromJson(accounts, commodities, difficulties, events, taxes, companies, markets, ratings, bonds, legal);
+        return LoadFromJson(accounts, commodities, difficulties, events, taxes, companies, markets, ratings, bonds, legal, playerCompanies, trade);
     }
 
-    public static DataLoadResult LoadFromJson(string accountsJson, string commoditiesJson, string difficultiesJson, string eventsJson = "[]", string? taxesJson = null, string? companiesJson = null, string? marketsJson = null, string? ratingsJson = null, string? bondsJson = null, string? legalJson = null)
+    public static DataLoadResult LoadFromJson(string accountsJson, string commoditiesJson, string difficultiesJson, string eventsJson = "[]", string? taxesJson = null, string? companiesJson = null, string? marketsJson = null, string? ratingsJson = null, string? bondsJson = null, string? legalJson = null, string? playerCompaniesJson = null, string? tradeJson = null)
     {
         var errors = new List<string>();
         List<AccountDefinition>? accounts = Deserialize<List<AccountDefinition>>(accountsJson, AccountsFile, errors);
@@ -93,7 +100,10 @@ public static class GameDataLoader
         RatingRules? ratings = ratingsJson is null ? new RatingRules() : Deserialize<RatingRules>(ratingsJson, RatingsFile, errors);
         List<BondTemplate>? bonds = bondsJson is null ? new List<BondTemplate>() : Deserialize<List<BondTemplate>>(bondsJson, BondsFile, errors);
         LegalRules? legal = legalJson is null ? new LegalRules() : Deserialize<LegalRules>(legalJson, LegalFile, errors);
-        if (accounts is null || commodities is null || difficulties is null || events is null || taxes is null || companies is null || markets is null || ratings is null || bonds is null || legal is null)
+        PlayerCompanyRules? playerCompanies = playerCompaniesJson is null ? new PlayerCompanyRules() : Deserialize<PlayerCompanyRules>(playerCompaniesJson, PlayerCompaniesFile, errors);
+        TradeRules? trade = tradeJson is null ? new TradeRules() : Deserialize<TradeRules>(tradeJson, TradeFile, errors);
+        if (accounts is null || commodities is null || difficulties is null || events is null || taxes is null || companies is null || markets is null || ratings is null || bonds is null || legal is null
+            || playerCompanies is null || trade is null)
         {
             return new DataLoadResult(null, errors);
         }
@@ -124,13 +134,19 @@ public static class GameDataLoader
             ValidateLegal(legal, errors);
         }
 
+        ValidatePlayerCompanies(playerCompanies, errors);
+        foreach (string id in trade.ExportDuties.Keys.Where(id => commodities.All(c => !c.Id.Equals(id, StringComparison.OrdinalIgnoreCase))))
+        {
+            errors.Add($"{TradeFile}: commodity desconocido en exportDuties: {id}.");
+        }
+
         if (errors.Count > 0)
         {
             return new DataLoadResult(null, errors);
         }
 
         var chart = new ChartOfAccounts(accounts.Select(a => new Account(a.Code, a.Name, a.Type)));
-        return new DataLoadResult(new GameData(chart, commodities, difficulties, events, taxes, companies, markets, ratings, bonds, legal), errors);
+        return new DataLoadResult(new GameData(chart, commodities, difficulties, events, taxes, companies, markets, ratings, bonds, legal, playerCompanies, trade), errors);
     }
 
     private static T? Deserialize<T>(string json, string file, List<string> errors)
@@ -428,6 +444,25 @@ public static class GameDataLoader
             {
                 errors.Add($"{BondsFile}: {b.Prefix} tiene plazo, amortización o cupón inválidos.");
             }
+        }
+    }
+
+    private static void ValidatePlayerCompanies(PlayerCompanyRules p, List<string> errors)
+    {
+        if (p.Types.Select(t => t.Id.ToLowerInvariant()).Distinct().Count() != p.Types.Count || p.Forms.Select(f => f.Id.ToLowerInvariant()).Distinct().Count() != p.Forms.Count)
+        {
+            errors.Add($"{PlayerCompaniesFile}: tipos o formas societarias repetidos.");
+        }
+
+        var activities = p.Types.SelectMany(t => t.Activities).ToList();
+        if (activities.Distinct(StringComparer.OrdinalIgnoreCase).Count() != activities.Count)
+        {
+            errors.Add($"{PlayerCompaniesFile}: una actividad no puede pertenecer a dos tipos de sociedad.");
+        }
+
+        if (p.Forms.Any(f => f.MinimumCapital < 0 || f.RegistrationFee < 0) || p.InsolvencyAfterDays < 1)
+        {
+            errors.Add($"{PlayerCompaniesFile}: capital, tasas y plazos deben ser positivos.");
         }
     }
 

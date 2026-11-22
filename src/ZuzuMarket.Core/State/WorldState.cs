@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using ZuzuMarket.Core.Commodities;
 using ZuzuMarket.Core.Events;
+using ZuzuMarket.Core.Companies;
 using ZuzuMarket.Core.Ledger;
 using ZuzuMarket.Core.Legal;
 using ZuzuMarket.Core.Macro;
@@ -14,8 +15,8 @@ namespace ZuzuMarket.Core.State;
 /// <summary>Todo el estado del mod para una partida. Se guarda junto con la partida.</summary>
 public sealed class WorldState
 {
-    /// <summary>1: Fase 0. 2: inflación, commodities y eventos. 3: impuestos. 4: bolsa. 5: BCRF, bonos y crédito. 6: derivados. 7: legal.</summary>
-    public const int CurrentSchemaVersion = 7;
+    /// <summary>1: Fase 0. 2: inflación, commodities y eventos. 3: impuestos. 4: bolsa. 5: BCRF, bonos y crédito. 6: derivados. 7: legal. 8: sociedades y comercio exterior.</summary>
+    public const int CurrentSchemaVersion = 8;
 
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
 
@@ -44,6 +45,8 @@ public sealed class WorldState
     public CentralBankState CentralBank { get; set; } = new();
 
     public LegalState Legal { get; set; } = new();
+
+    public CompaniesState Companies { get; set; } = new();
 }
 
 public sealed class WorldStateSerializationException : Exception
@@ -114,6 +117,9 @@ public static class WorldStateSerializer
 
         // 6 → 7: situación legal limpia, calificación BB hasta el próximo cálculo.
         state.Legal ??= new LegalState();
+
+        // 7 → 8: sin sociedades ni exportaciones.
+        state.Companies ??= new CompaniesState();
         state.SchemaVersion = WorldState.CurrentSchemaVersion;
         return state;
     }

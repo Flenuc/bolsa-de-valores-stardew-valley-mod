@@ -65,6 +65,13 @@ public static class SystemAccounts
     public const string InteresesBancarios = "5.4.05";
     public const string IngresosPorRemate = "4.9.02";
     public const string QuitaConcursal = "4.9.03";
+    public const string ResultadosAcumulados = "3.1.02";
+    public const string TasasOtras = "5.3.01";
+    public const string CobrosARendirPorSocio = "1.1.09";
+    public const string ExportacionesACobrar = "1.1.10";
+    public const string ParticipacionesEnSociedades = "1.3.06";
+    public const string CobranzasARendirASociedades = "2.1.12";
+    public const string DerechosDeExportacion = "5.3.08";
 
     public static IReadOnlyList<string> All { get; } = new[]
     {
@@ -76,6 +83,8 @@ public static class SystemAccounts
         ComisionesBursatiles, RetencionDividendos, Bonos, Garantias, PrimasCompradas, PrimasLanzadas,
         ResultadosDerivadosPositivos, ResultadosDerivadosNegativos, PrestamosBancarios, CuotasAPagarBanco,
         CaucionTomadora, DeudaConcursal, InteresesBancarios, IngresosPorRemate, QuitaConcursal,
+        ResultadosAcumulados, TasasOtras, CobrosARendirPorSocio, ExportacionesACobrar, ParticipacionesEnSociedades,
+        CobranzasARendirASociedades, DerechosDeExportacion,
     };
 }
 
@@ -87,4 +96,7 @@ public static class LedgerEntities
 
     /// <summary>La granja como empresa agropecuaria.</summary>
     public const string Granja = "granja";
+
+    /// <summary>Prefijo de las sociedades del jugador ("emp1", "emp2"…).</summary>
+    public const string CompanyPrefix = "emp";
 }

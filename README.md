@@ -66,6 +66,10 @@ Si el juego no está en la ruta estándar de Steam/GOG, agregá `<GamePath>` en 
 | `zuzu_credit` | Calificación crediticia, límite, préstamos y cauciones tomadoras |
 | `zuzu_legal` | Situación legal: deuda exigible, embargo, concurso e inhabilitación |
 | `zuzu_debt <monto>` | (solo `DebugMode`) crea una deuda en gestión de cobro para probar la escalera legal |
+| `zuzu_companies` | Tipos de sociedad (y si están desbloqueados) y tus sociedades |
+| `zuzu_company <id>` | Balance e impuestos impagos de una sociedad (p. ej. `emp1`) |
+| `zuzu_exports` | Retenciones por commodity, contenedor de exportación y cobros pendientes |
+| `zuzu_unlock_companies` | (solo `DebugMode`) desbloquea todos los tipos de sociedad |
 | `zuzu_place_phone` | Mueve el teléfono de Valle Inversiones al tile que tenés enfrente (en el pueblo) |
 | `zuzu_terminal` | (solo `DebugMode`) abre la Terminal Bursátil en cualquier lado |
 | `zuzu_trade buy\|sell <especie> <cant>` | (solo `DebugMode`) opera sin la Terminal |

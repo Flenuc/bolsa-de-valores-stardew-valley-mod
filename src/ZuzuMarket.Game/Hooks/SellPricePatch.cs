@@ -26,7 +26,7 @@ internal static class SellPricePatch
     {
         try
         {
-            __result = PriceService.Apply(__result, PriceService.SellMultiplier(__instance.ItemId));
+            __result = PriceService.Apply(__result, PriceService.SellMultiplier(__instance.ItemId, __instance.Category));
         }
         catch (Exception ex)
         {

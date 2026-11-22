@@ -21,7 +21,7 @@ internal static class ShopInflation
         }
 
         Adjusted.Add(shop, new object());
-        double multiplier = PriceService.PurchaseMultiplier;
+        double multiplier = PriceService.PurchaseMultiplier(shop.ShopId);
         if (multiplier == 1.0)
         {
             return;

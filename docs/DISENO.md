@@ -328,6 +328,12 @@ La ARF/ARPV/Municipalidad envían la boleta por **correo**; se paga en la termin
 | Municipal | **ABL / Tasa de servicios** | Edificios de la granja (por tipo y tamaño) | Monto fijo indexado por IPC | Estación |
 
 - **Retenciones y percepciones** sufridas son **pago a cuenta** del impuesto final (crédito fiscal).
+- **Implementado (Fase 7A, `data/trade.json`):** retenciones por commodity (granos 12%, hortalizas/frutas/animales
+  5%, cobre/hierro 8%, oro 10%, pescado 3%, vino 0%) × `tradeDuties`. En el cajón, el acopiador traslada la mitad
+  (precio FAS). La Comercializadora exporta el contenido del contenedor cada día hábil a precio FOB (local + 15%,
+  con premio por calidad), sin IVA ni IIBB, neto de retenciones y con cobro a 7 días; el 30% de lo exportado igual
+  presiona el precio local. Aranceles de importación 20% × `tradeDuties` + 3% de estadística en Sandy, el carrito
+  ambulante, el desierto, la isla y el volcán.
 - Atraso: **intereses resarcitorios** diarios + multas → **intimación** → **embargo** (ver §11).
 - Eventos fiscales: reformas, moratorias con plan de pagos, blanqueos, nuevas tasas municipales (votadas en el
   festival…).
@@ -507,7 +513,8 @@ Cada parámetro puede además ajustarse individualmente en `config.json` (y con 
 | **4 — Renta fija completa** | BCRF y curva de tasas, bonos (fijos, variables, CER-F), ON, calificaciones, default | Cartera de renta fija | Valuación y cupones testeados |
 | **5 — Derivados** | MATZU: futuros con garantías y entrega física, Silo de Acopio, opciones | Cubrís tu cosecha | Ciclo completo de un futuro con entrega |
 | **6 — Legal** | Embargos, concurso, quiebra, préstamos bancarios, calificación del jugador | Las deudas tienen consecuencias | Escalera completa reproducible en tests |
-| **7 — Expansión empresaria** | Nuevas empresas del jugador, S.A., emisión de ON propias, retenciones/aranceles completos, comercializadora Gotoro, IPO | Final del juego | IPO funcional |
+| **7A — Expansión empresaria** | Nuevas empresas del jugador, S.A., retenciones/aranceles completos, comercializadora Gotoro | Tus sociedades | Sociedades con libro e impuestos propios |
+| **7B — Mercado de capitales propio** | Emisión de ON propias, IPO de una S.A. que cotiza en BYMZ | Final del juego | IPO funcional |
 | **8 — Edificio, NPC y pulido** | Agencia Bursátil en el lote al sur de la plaza, NPC agente de bolsa (horarios, diálogos, amistad, eventos), gráficos, balance de dificultades, i18n en/es, compatibilidad con GMCM | Versión 1.0 | Partida de prueba de 1 año en cada dificultad |
 | **9 — Multijugador / Argentina avanzada** | Host autoritativo, cuentas por granjero; tipo de cambio, cepo, brecha | — | — |
 

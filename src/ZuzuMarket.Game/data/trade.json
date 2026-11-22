@@ -1,0 +1,26 @@
+// Comercio exterior con el Imperio Gotoro (§6.3 y §9 de docs/DISENO.md).
+// Las retenciones y aranceles se multiplican por "tradeDuties" de la dificultad (Casual 0,5 · Realista 1 · Argentina 1,5).
+{
+  // Derechos de exportación (retenciones) por commodity, sobre el valor FOB.
+  "exportDuties": {
+    "trigo": 0.12, "maiz": 0.12,
+    "chirivia": 0.05, "papa": 0.05, "tomate": 0.05, "arandano": 0.05, "melon": 0.05, "calabaza": 0.05,
+    "leche": 0.05, "huevo": 0.05,
+    "cobre": 0.08, "hierro": 0.08, "oro": 0.10,
+    "pescado": 0.03, "vino": 0.0
+  },
+
+  // El acopiador del cajón de envíos te traslada esta parte de la retención (precio FAS).
+  "fasPassThrough": 0.5,
+
+  // Exportación por la Comercializadora: prima del precio internacional, días de cobro y cuánto de lo
+  // exportado igual presiona el precio local.
+  "gotoroPremium": 0.15,
+  "exportCollectionDays": 7,
+  "exportSupplyFactor": 0.3,
+
+  // Derechos de importación y tasa de estadística en las tiendas que venden mercadería importada.
+  "importDuty": 0.20,
+  "statisticsFee": 0.03,
+  "importShops": ["Sandy", "Traveler", "DesertTrade", "IslandTrade", "VolcanoShop"]
+}

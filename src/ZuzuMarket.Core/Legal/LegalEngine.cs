@@ -562,6 +562,7 @@ public sealed class LegalEngine
         int embargoes = _s.Events.Count(e => e.Kind == LegalEventKind.Embargo && Recent(e, year));
         int concursos = _s.Events.Count(e => e.Kind == LegalEventKind.Concurso && Recent(e, year * 2));
         int bankruptcies = _s.Events.Count(e => e.Kind == LegalEventKind.Bankruptcy && Recent(e, year * 2));
+        int companyBankruptcies = _s.Events.Count(e => e.Kind == LegalEventKind.CompanyBankruptcy && Recent(e, year * 2));
 
         double revenue = Math.Max(1000, (double)AnnualRevenue);
         double debt = (double)(_ledger.GetBalance(Entity, SystemAccounts.PrestamosBancarios) + _ledger.GetBalance(Entity, SystemAccounts.CaucionTomadora));
@@ -570,7 +571,7 @@ public sealed class LegalEngine
             - Math.Clamp(debt / revenue * 20, 0, 25)
             - Math.Min(20, 4 * overdue)
             - Math.Min(20, 8 * intimations)
-            - (20 * embargoes) - (25 * concursos) - (40 * bankruptcies)
+            - (20 * embargoes) - (25 * concursos) - (40 * bankruptcies) - (15 * companyBankruptcies)
             - (IsEmbargoActive ? 15 : 0) - (_s.ConcursoActive ? 15 : 0);
         _s.Score = score;
         string rating = score >= 85 ? "AAA" : score >= 75 ? "AA" : score >= 65 ? "A" : score >= 55 ? "BBB"

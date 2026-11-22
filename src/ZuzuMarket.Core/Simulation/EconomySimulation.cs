@@ -1,4 +1,5 @@
 using ZuzuMarket.Core.Commodities;
+using ZuzuMarket.Core.Companies;
 using ZuzuMarket.Core.Data;
 using ZuzuMarket.Core.Events;
 using ZuzuMarket.Core.Ledger;
@@ -47,7 +48,9 @@ public sealed record DayStartedInfo(
     IReadOnlyList<AutoDebitPayment> AutoDebited,
     IReadOnlyList<RateDecision> RateDecisions,
     IReadOnlyList<CreditEvent> CreditEvents,
-    LegalDay Legal)
+    LegalDay Legal,
+    IReadOnlyList<CompanyNotice> CompanyNotices,
+    decimal CompanyTransfers)
 {
     /// <summary>Oro total que el juego tiene que descontarle al jugador por el débito automático.</summary>
     public long AutoDebitTotal => AutoDebited.Sum(p => p.Amount);
@@ -87,6 +90,7 @@ public sealed class EconomySimulation
         Credit = new CreditEngine(data, state.Markets.Issuers);
         Broker = new Broker(data, state.Markets, ledger, Stocks, CentralBank, Credit, Inflation, Market, Events, Taxes, () => Difficulty);
         Legal = new LegalEngine(data, state.Legal, ledger, Taxes, Broker, CentralBank, () => Difficulty);
+        Companies = new PlayerCompanies(data, state.Companies, ledger, Taxes, Legal, Inflation, Market, () => Difficulty);
 
         if (!Inflation.HasStarted)
         {
@@ -143,6 +147,8 @@ public sealed class EconomySimulation
     public CreditEngine Credit { get; }
 
     public LegalEngine Legal { get; }
+
+    public PlayerCompanies Companies { get; }
 
     public Broker Broker { get; }
 
@@ -222,9 +228,19 @@ public sealed class EconomySimulation
     /// aplicar la mora, así una boleta que vence se paga ese mismo día aunque se salteen días.
     /// El juego debe descontar <see cref="DayStartedInfo.AutoDebitTotal"/> del oro del jugador.
     /// </param>
-    public DayStartedInfo OnDayStarted(EconomicDate date, Weather weather = Weather.Sun, FarmSnapshot? farm = null, long? autoDebitBudget = null)
+    /// <param name="pocket">Oro del jugador: limita lo que se rinde a las sociedades (null = sin límite).</param>
+    public DayStartedInfo OnDayStarted(EconomicDate date, Weather weather = Weather.Sun, FarmSnapshot? farm = null, long? autoDebitBudget = null, long? pocket = null)
     {
         farm ??= FarmSnapshot.Empty;
+        _companyNotices = new List<CompanyNotice>();
+
+        // Lo cobrado ayer por cuenta de las sociedades se les rinde antes que nada.
+        decimal transfers = Companies.TransferCollections(_state.CurrentDate, pocket ?? autoDebitBudget);
+        if (autoDebitBudget is long b)
+        {
+            autoDebitBudget = Math.Max(0, b - (long)Math.Ceiling(transfers));
+        }
+
         _autoDebitBudget = autoDebitBudget;
         var autoDebited = new List<AutoDebitPayment>();
         _autoDebited = autoDebited;
@@ -269,7 +285,7 @@ public sealed class EconomySimulation
 
         bool newPeriod = daysAdvanced > 0 && date.FiscalPeriod != previous.FiscalPeriod;
         bool newYear = daysAdvanced > 0 && date.Year != previous.Year;
-        return new DayStartedInfo(date, date.IsBusinessDay, newPeriod, newYear, daysAdvanced, newEvents, published, taxNotices, marketNotices, autoDebited, _rateDecisions, _creditEvents, _legalDay);
+        return new DayStartedInfo(date, date.IsBusinessDay, newPeriod, newYear, daysAdvanced, newEvents, published, taxNotices, marketNotices, autoDebited, _rateDecisions, _creditEvents, _legalDay, _companyNotices, transfers);
     }
 
     /// <summary>Se llama al terminar el día, antes de guardar.</summary>
@@ -293,8 +309,94 @@ public sealed class EconomySimulation
     /// <summary>Compra en una tienda (o a Robin) por el importe pagado.</summary>
     public JournalEntry? RecordPurchase(long gross) => Taxes.RecordPurchase(_state.CurrentDate, gross);
 
-    /// <summary>Paga una boleta contra la Caja. Devuelve el oro que el juego debe descontar, o null si no se pudo.</summary>
-    public long? PayObligation(long obligationId) => Taxes.Pay(obligationId, _state.CurrentDate);
+    /// <summary>
+    /// Paga una boleta. Las del jugador, contra su Caja; las de una sociedad, con su caja y, si no alcanza, con un
+    /// aporte del jugador por la diferencia. Devuelve el oro que el juego debe descontar, o null si no se pudo.
+    /// </summary>
+    public long? PayObligation(long obligationId)
+    {
+        if (Taxes.Find(obligationId) is not null)
+        {
+            return Taxes.Pay(obligationId, _state.CurrentDate);
+        }
+
+        if (FindObligation(obligationId) is not ({ } engine, { IsPaid: false } o) || Companies.Find(engine.Entity) is not { } company)
+        {
+            return null;
+        }
+
+        decimal shortfall = Math.Max(0, o.Total - Companies.Cash(company));
+        long fromPocket = (long)Math.Ceiling(shortfall);
+        if (fromPocket > 0)
+        {
+            Companies.Contribute(company.Id, fromPocket, decimal.MaxValue, _state.CurrentDate);
+        }
+
+        engine.Pay(obligationId, _state.CurrentDate);
+        return fromPocket;
+    }
+
+    /// <summary>Oro del bolsillo que hace falta para pagar una boleta (las de una sociedad usan primero su caja).</summary>
+    public long PocketNeeded(long obligationId)
+    {
+        if (FindObligation(obligationId) is not ({ } engine, { } o))
+        {
+            return 0;
+        }
+
+        return Companies.Find(engine.Entity) is { } company ? (long)Math.Ceiling(Math.Max(0, o.Total - Companies.Cash(company))) : o.Total;
+    }
+
+    /// <summary>Busca una boleta del jugador o de cualquiera de sus sociedades.</summary>
+    public (TaxEngine Engine, TaxObligation Obligation)? FindObligation(long id)
+    {
+        if (Taxes.Find(id) is { } own)
+        {
+            return (Taxes, own);
+        }
+
+        foreach (CompanyState c in Companies.State.Companies)
+        {
+            if (Companies.TaxesOf(c).Find(id) is { } o)
+            {
+                return (Companies.TaxesOf(c), o);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Boletas impagas del jugador y de sus sociedades activas.</summary>
+    public IEnumerable<(TaxEngine Engine, TaxObligation Obligation)> AllUnpaid =>
+        Taxes.Unpaid.Select(o => (Taxes, o))
+            .Concat(Companies.Active.SelectMany(c => Companies.TaxesOf(c).Unpaid.Select(o => (Companies.TaxesOf(c), o))));
+
+    /// <summary>
+    /// Multiplicador del precio de venta vanilla: mercado × (1 − retención trasladada por el acopiador, precio FAS)
+    /// × (1 + bonificación si una sociedad tuya vende ese rubro).
+    /// </summary>
+    public double SellMultiplier(string itemId, int category)
+    {
+        double multiplier = Market.GetMultiplierForItem(itemId);
+        if (Data.FindCommodityByItemId(itemId) is { } commodity)
+        {
+            multiplier *= (double)(1 - (Data.Trade.ExportDuty(commodity.Id, Difficulty.TradeDuties) * Data.Trade.FasPassThrough));
+        }
+
+        return multiplier * (double)(1 + Companies.PriceBonus(Taxes.ActivityFor(itemId, category)));
+    }
+
+    /// <summary>Multiplicador de los precios de compra de una tienda: IPC × aranceles si importa.</summary>
+    public double PurchaseMultiplier(string? shopId)
+    {
+        double multiplier = Inflation.Index;
+        if (shopId is not null && Data.Trade.ImportShops.Contains(shopId, StringComparer.OrdinalIgnoreCase))
+        {
+            multiplier *= (double)(1 + Data.Trade.ImportSurcharge(Difficulty.TradeDuties));
+        }
+
+        return multiplier;
+    }
 
     /// <summary>Hace empezar un evento hoy y recalcula los precios (comando de debug).</summary>
     public EventDefinition? ForceEvent(string eventId)
@@ -366,6 +468,7 @@ public sealed class EconomySimulation
     }
 
     private LegalDay _legalDay = new();
+    private List<CompanyNotice> _companyNotices = new();
     private List<RateDecision> _rateDecisions = new();
     private List<CreditEvent> _creditEvents = new();
 
@@ -520,7 +623,7 @@ public sealed class EconomySimulation
             Market.RecordShipment(item.ItemId, item.Units);
         }
 
-        Taxes.RecordSales(_state.CurrentDate, items, channel);
+        Taxes.RecordSales(_state.CurrentDate, Companies.Attribute(items, channel, _state.CurrentDate), channel);
     }
 
     private void StepDay(EconomicDate day, Weather weather, FarmSnapshot farm, List<EventDefinition> newEvents, List<InflationRecord> published, List<TaxNotice> taxNotices, List<MarketNotice> marketNotices)
@@ -552,6 +655,7 @@ public sealed class EconomySimulation
             {
                 Legal.IssueLoanInstallments(day, taxNotices);
                 Legal.UpdateRating(day, _legalDay.Notices);
+                Companies.OnPeriodStart(day, _companyNotices);
             }
         }
 
@@ -591,6 +695,7 @@ public sealed class EconomySimulation
         taxNotices.AddRange(Taxes.OnDay(day));
         Legal.RecordTaxNotices(taxNotices.Skip(before));
         Legal.OnDay(day, _legalDay);
+        Companies.OnDay(day, q => Broker.DerivativesRules.QualityPremium(q), _companyNotices);
     }
 
     private void RecalculatePrices()

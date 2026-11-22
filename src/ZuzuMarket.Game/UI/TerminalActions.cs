@@ -1,4 +1,5 @@
 using StardewValley;
+using ZuzuMarket.Core.Companies;
 using ZuzuMarket.Core.Markets;
 using ZuzuMarket.Core.Simulation;
 using ZuzuMarket.Game.Bridges;
@@ -12,15 +13,59 @@ internal sealed class TerminalActions
     private readonly BrokerMail _mail;
     private readonly MoneyTracker _money;
     private readonly SiloBridge _silo;
+    private readonly ExportBridge _exports;
+    private readonly CompanyMail _companyMail;
 
-    public TerminalActions(BrokerMail mail, MoneyTracker money, SiloBridge silo)
+    public TerminalActions(BrokerMail mail, MoneyTracker money, SiloBridge silo, ExportBridge exports, CompanyMail companyMail)
     {
         _mail = mail;
         _money = money;
         _silo = silo;
+        _exports = exports;
+        _companyMail = companyMail;
     }
 
     public void OpenSilo(EconomySimulation sim) => _silo.Open(sim);
+
+    public void OpenExports(EconomySimulation sim) => _exports.Open(sim);
+
+    public CompanyError CreateCompany(EconomySimulation sim, string type, string form, long capital)
+    {
+        var notices = new List<CompanyNotice>();
+        bool unlocked = sim.Data.PlayerCompanies.FindType(type) is { } t && CompanyUnlocks.IsUnlocked(t);
+        CompanyResult r = sim.Companies.Create(type, form, capital, unlocked, Game1.player.Money, sim.CurrentDate, notices);
+        return Apply(r, notices);
+    }
+
+    public CompanyError Contribute(EconomySimulation sim, string id, long amount) =>
+        Apply(sim.Companies.Contribute(id, amount, Game1.player.Money, sim.CurrentDate), new List<CompanyNotice>());
+
+    public CompanyError PayDividend(EconomySimulation sim, string id, long amount) =>
+        Apply(sim.Companies.PayDividend(id, amount, sim.CurrentDate), new List<CompanyNotice>());
+
+    public CompanyError Transform(EconomySimulation sim, string id, string form)
+    {
+        var notices = new List<CompanyNotice>();
+        return Apply(sim.Companies.Transform(id, form, Game1.player.Money, sim.CurrentDate, notices), notices);
+    }
+
+    public CompanyError Dissolve(EconomySimulation sim, string id)
+    {
+        var notices = new List<CompanyNotice>();
+        return Apply(sim.Companies.Dissolve(id, sim.CurrentDate, notices), notices);
+    }
+
+    private CompanyError Apply(CompanyResult r, List<CompanyNotice> notices)
+    {
+        if (r.Error == CompanyError.None)
+        {
+            Game1.player.Money = Math.Max(0, Game1.player.Money + (int)Math.Floor(r.GoldDelta));
+            _money.Reset();
+            _companyMail.Publish(notices);
+        }
+
+        return r.Error;
+    }
 
     /// <summary>Pide un préstamo: el oro entra al bolsillo.</summary>
     public TradeError TakeLoan(EconomySimulation sim, long amount, int term)

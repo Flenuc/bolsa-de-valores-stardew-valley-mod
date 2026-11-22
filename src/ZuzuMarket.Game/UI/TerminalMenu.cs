@@ -27,6 +27,7 @@ internal sealed partial class TerminalMenu : IClickableMenu
         FixedIncome,
         Derivatives,
         Credit,
+        Companies,
         Portfolio,
         Account,
     }
@@ -157,6 +158,9 @@ internal sealed partial class TerminalMenu : IClickableMenu
                     break;
                 case Tab.Credit:
                     DrawCredit(b, content);
+                    break;
+                case Tab.Companies:
+                    DrawCompanies(b, content);
                     break;
                 case Tab.Portfolio:
                     DrawPortfolio(b, content);

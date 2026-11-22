@@ -32,6 +32,7 @@ internal sealed class ModEntry : Mod
     private TerminalActions? _terminalActions;
     private SeizureBridge? _seizure;
     private LegalMail? _legalMail;
+    private CompanyMail? _companyMail;
     private EconomySimulation? _simulation;
 
     /// <summary>Si el estado guardado estaba dañado, no se guarda nada encima para no perderlo.</summary>
@@ -94,8 +95,12 @@ internal sealed class ModEntry : Mod
         _seizure = new SeizureBridge(Monitor);
         _legalMail = new LegalMail(helper, ModManifest, _config, _taxMail);
         helper.Events.Content.AssetRequested += _legalMail.OnAssetRequested;
-        _terminalActions = new TerminalActions(_brokerMail, _money, silo);
+        var exports = new ExportBridge(() => Simulation);
+        _companyMail = new CompanyMail(helper, ModManifest, _config, _taxMail);
+        helper.Events.Content.AssetRequested += _companyMail.OnAssetRequested;
+        _terminalActions = new TerminalActions(_brokerMail, _money, silo, exports, _companyMail);
         helper.Events.Display.MenuChanged += silo.OnMenuChanged;
+        helper.Events.Display.MenuChanged += exports.OnMenuChanged;
         var objects = new ModObjects(helper.Translation);
 
         var harmony = new Harmony(ModManifest.UniqueID);
@@ -169,10 +174,11 @@ internal sealed class ModEntry : Mod
             GameDateBridge.CurrentDate(),
             WeatherBridge.Today(),
             FarmBridge.Snapshot(),
-            _config.AutoDebit ? Game1.player.Money : null);
+            _config.AutoDebit ? Game1.player.Money : null,
+            Game1.player.Money);
 
-        // El débito automático y el embargo de ingresos ya se asentaron: se descuenta el oro antes de conciliar.
-        long debited = info.AutoDebitTotal + (long)Math.Floor(info.Legal.Garnished) + (long)Math.Floor(info.Legal.CashSeized);
+        // El débito automático, lo rendido a tus sociedades y los embargos ya se asentaron: se descuenta el oro antes de conciliar.
+        long debited = info.AutoDebitTotal + (long)Math.Floor(info.CompanyTransfers) + (long)Math.Floor(info.Legal.Garnished) + (long)Math.Floor(info.Legal.CashSeized);
         if (debited > 0)
         {
             Game1.player.Money = Math.Max(0, Game1.player.Money - (int)debited);
@@ -187,6 +193,7 @@ internal sealed class ModEntry : Mod
         _taxMail!.Publish(info.TaxNotices);
         _brokerMail!.Publish(info.MarketNotices, Simulation.Broker.IsOpen);
         _brokerMail.PublishMacro(Simulation, info);
+        _companyMail!.Publish(info.CompanyNotices, Simulation.Companies.Find);
         _phone!.Place();
         _municipalidad!.AnnounceAutoDebit(Simulation, info);
 
