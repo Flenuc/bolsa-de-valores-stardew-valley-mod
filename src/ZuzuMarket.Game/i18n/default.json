@@ -877,7 +877,7 @@
   "terminal.tab.Dollar": "Dollar",
   "terminal.fx.gtd": "{{amount}} GTD",
   "terminal.fx.quotes": "Gotoro gold rates (in local gold)",
-  "terminal.fx.official": "Official (we sell / we buy)",
+  "terminal.fx.official": "Official (buy / sell)",
   "terminal.fx.mep": "MEP (exchange)",
   "terminal.fx.blue": "Black market at Krobus's (buy / sell)",
   "terminal.fx.gap": "Gap",
@@ -907,5 +907,9 @@
   "cmd.fx.devaluation": "  Devaluation on {{date}}: +{{size}}",
   "cmd.devalue.help": "DEBUG: devalues the official rate by that percentage (pass-through to prices, stocks and rates).\n\nUsage: zuzu_devalue <percentage>",
   "cmd.devalue.usage": "Usage: zuzu_devalue <percentage>. E.g.: zuzu_devalue 50",
-  "cmd.devalue.done": "{{size}} devaluation: the official rate is now {{rate}}."
+  "cmd.devalue.done": "{{size}} devaluation: the official rate is now {{rate}}.",
+  "cmd.difficulty.help": "Shows this save's difficulty. With DebugMode, changes it (taxes, inflation and the dollar switch to the new one).\n\nUsage: zuzu_difficulty [casual|realista|argentina]",
+  "cmd.difficulty.current": "This save is on {{difficulty}} difficulty. The Difficulty config option only applies to new saves.",
+  "cmd.difficulty.unknown": "There is no {{difficulty}} difficulty.",
+  "cmd.difficulty.done": "The save is now on {{difficulty}} difficulty."
 }

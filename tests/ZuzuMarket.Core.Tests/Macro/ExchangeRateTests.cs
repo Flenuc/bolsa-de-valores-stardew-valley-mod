@@ -210,6 +210,25 @@ public class ExchangeRateTests
     }
 
     [Fact]
+    public void OldSave_GetsGotoroBondsOnLoad_AndCanSwitchToArgentina()
+    {
+        EconomySimulation sim = NewGame("realista");
+        WorldState state = sim.Snapshot();
+        state.Markets.Bonds.RemoveAll(b => b.IsGotoro); // como una partida anterior a la Fase 9
+
+        EconomySimulation loaded = EconomySimulation.Load(TestData.Load(), state);
+        Assert.NotNull(loaded.Broker.MepBond);
+        Assert.False(loaded.FxRules.Cepo);
+
+        Assert.True(loaded.ChangeDifficulty("argentina"));
+        EconomySimulation reloaded = EconomySimulation.Load(TestData.Load(), loaded.Snapshot());
+        Assert.True(reloaded.FxRules.Cepo);
+        Assert.True(reloaded.Fx.Gap > 0);
+        Assert.Equal(200m, reloaded.Broker.QuotaLeft(Monday));
+        Assert.False(loaded.ChangeDifficulty("imposible"));
+    }
+
+    [Fact]
     public void SaveAndLoad_KeepsRatesAndBalances()
     {
         EconomySimulation sim = NewGame("argentina", deposit: 100_000);

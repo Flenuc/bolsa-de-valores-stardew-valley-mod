@@ -877,7 +877,7 @@
   "terminal.tab.Dollar": "Dólar",
   "terminal.fx.gtd": "{{amount}} GTD",
   "terminal.fx.quotes": "Cotizaciones del oro gotoro (en oro local)",
-  "terminal.fx.official": "Oficial (vendemos / compramos)",
+  "terminal.fx.official": "Oficial (compra / venta)",
   "terminal.fx.mep": "MEP (bolsa)",
   "terminal.fx.blue": "Blue en lo de Krobus (compra / venta)",
   "terminal.fx.gap": "Brecha",
@@ -907,5 +907,9 @@
   "cmd.fx.devaluation": "  Devaluación del {{date}}: +{{size}}",
   "cmd.devalue.help": "DEBUG: devalúa el oficial en ese porcentaje (traslado a precios, bolsa y tasa).\n\nUso: zuzu_devalue <porcentaje>",
   "cmd.devalue.usage": "Uso: zuzu_devalue <porcentaje>. Ej.: zuzu_devalue 50",
-  "cmd.devalue.done": "Devaluación del {{size}}: el oficial quedó en {{rate}}."
+  "cmd.devalue.done": "Devaluación del {{size}}: el oficial quedó en {{rate}}.",
+  "cmd.difficulty.help": "Muestra la dificultad de esta partida. Con DebugMode, la cambia (los impuestos, la inflación y el dólar pasan a usar la nueva).\n\nUso: zuzu_difficulty [casual|realista|argentina]",
+  "cmd.difficulty.current": "Esta partida está en dificultad {{difficulty}}. La opción Difficulty de la configuración solo vale para partidas nuevas.",
+  "cmd.difficulty.unknown": "No existe la dificultad {{difficulty}}.",
+  "cmd.difficulty.done": "La partida ahora está en dificultad {{difficulty}}."
 }

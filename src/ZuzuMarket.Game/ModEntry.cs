@@ -106,6 +106,7 @@ internal sealed class ModEntry : Mod
             () => Monitor.Log(helper.Translation.Get("log.config-saved"), LogLevel.Debug),
             _data.Difficulties.ToDictionary(d => d.Id, d => d.Name));
         new AgencyCommands(helper, Monitor, _config, compat, exterior, _agency, _julian, _phone).Register();
+        helper.ConsoleCommands.Add("zuzu_difficulty", helper.Translation.Get("cmd.difficulty.help"), (_, args) => ChangeDifficulty(args));
         Monitor.Log($"Compatibilidad: {compat.Variant}.", LogLevel.Debug);
         var silo = new SiloBridge(() => Simulation);
         _seizure = new SeizureBridge(Monitor);
@@ -305,6 +306,39 @@ internal sealed class ModEntry : Mod
 
         _legalMail!.Publish(notices);
         _money!.Reset();
+    }
+
+    /// <summary>Debug: cambia la dificultad de la partida en curso y recarga la simulación.</summary>
+    private void ChangeDifficulty(string[] args)
+    {
+        if (Simulation is null)
+        {
+            return;
+        }
+
+        if (args.Length == 0)
+        {
+            Monitor.Log(Helper.Translation.Get("cmd.difficulty.current", new { difficulty = Simulation.Difficulty.Name }), LogLevel.Info);
+            return;
+        }
+
+        if (!_config.DebugMode)
+        {
+            Monitor.Log(Helper.Translation.Get("cmd.debug-only", new { command = "zuzu_difficulty" }), LogLevel.Warn);
+            return;
+        }
+
+        if (!Simulation.ChangeDifficulty(args[0]))
+        {
+            Monitor.Log(Helper.Translation.Get("cmd.difficulty.unknown", new { difficulty = args[0] }), LogLevel.Warn);
+            return;
+        }
+
+        // Se recarga desde el estado para que todos los motores tomen la dificultad nueva.
+        Simulation = EconomySimulation.Load(_data!, Simulation.Snapshot(), _log);
+        Simulation.Broker.CommissionDiscount = () => _config.AgencyEnabled ? JulianNpc.CommissionDiscount : 0;
+        Helper.GameContent.InvalidateCache("Data/Shops");
+        Monitor.Log(Helper.Translation.Get("cmd.difficulty.done", new { difficulty = Simulation.Difficulty.Name }), LogLevel.Info);
     }
 
     /// <summary>Billetes gotoro comprados en la tienda de Krobus: quedan registrados para el riesgo de operativo.</summary>

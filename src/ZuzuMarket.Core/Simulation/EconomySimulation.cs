@@ -102,6 +102,12 @@ public sealed class EconomySimulation
             Fx.Start(state.CurrentDate, FxRules, Inflation.PeriodRate);
         }
 
+        if (state.Markets.BondsStarted && !state.Markets.Bonds.Any(b => b.IsGotoro))
+        {
+            // Partida anterior a los bonos ley Gotoro: se emiten ahora (si no, no hay MEP hasta la primavera).
+            Broker.IssueBonds(state.CurrentDate);
+        }
+
         if (!Inflation.HasStarted)
         {
             // Partida nueva, o partida del esquema 1 (Fase 0) que recién migra.
@@ -169,6 +175,26 @@ public sealed class EconomySimulation
     /// en vez del MEP que refleja los precios locales. Sin cepo es 1.
     /// </summary>
     public double ExportLiquidationFactor => FxRules.Cepo ? ((1 - FxRules.ExportBlend) / (1 + Fx.Gap)) + FxRules.ExportBlend : 1;
+
+    /// <summary>
+    /// Cambia la dificultad de una partida en curso (debug). Hay que volver a cargar la simulación para que los motores
+    /// que la toman al construirse (impuestos) usen la nueva. Con cepo, la brecha arranca en su media.
+    /// </summary>
+    public bool ChangeDifficulty(string id)
+    {
+        if (Data.FindDifficulty(id) is not { } difficulty)
+        {
+            return false;
+        }
+
+        _state.DifficultyId = difficulty.Id;
+        if (FxRules.Cepo && Fx.Gap == 0)
+        {
+            Fx.State.Gap = Math.Max(0, FxRules.GapBase + (FxRules.GapInflationWeight * Inflation.PeriodRate));
+        }
+
+        return true;
+    }
 
     /// <summary>Debug: devaluación inmediata.</summary>
     public void ForceDevaluation(double size) => ApplyDevaluation(_state.CurrentDate, Fx.Devalue(_state.CurrentDate, size));
