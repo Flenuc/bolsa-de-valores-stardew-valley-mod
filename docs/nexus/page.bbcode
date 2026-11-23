@@ -1,0 +1,95 @@
+[center][size=6][b]Zuzu Stock Exchange[/b][/size]
+[size=4][i]Bolsa de Valores de Zuzu[/i][/size]
+
+[size=3]Turn Pelican Town into an economy: prices that react to what you sell, inflation, taxes, a full stock exchange, your own companies, debts... and a black market for Gotoro gold.[/size]
+
+[url=#english]English[/url] · [url=#espanol]Español[/url][/center]
+
+[line]
+
+[size=5][b][anchor=english]What is this?[/anchor][/b][/size]
+
+Zuzu Stock Exchange is a deep economy and finance simulator for Stardew Valley, inspired by the Argentine economy. Everything you earn and spend goes through real double-entry books, and the world around you has prices, rates and events of its own.
+
+[size=4][b]Features[/b][/size]
+[list]
+[*][b]Living commodity prices[/b] — 15 commodities (wheat, corn, parsnip, pumpkin, milk, eggs, copper, iron, gold, fish, wine...) with supply and demand: ship 2,000 parsnips and the price sinks. Seasons, events and news move the market.
+[*][b]Inflation[/b] — a price index that raises shop prices, building costs and taxes every day.
+[*][b]Argentine-style taxes[/b] — start as a [i]monotributista[/i], grow into a VAT-registered business (IVA, gross income, municipal fees, income tax with advances). Pay at Mayor Lewis's town ledger, at the Agency or with auto debit. Late payment means interest, formal notices and collections.
+[*][b]Stock exchange (BYMZ)[/b] — 10 fictional companies with charts and dividends, the MERZU index, Treasury bills, repos, sovereign and corporate bonds (fixed, floating and inflation-linked), credit ratings, defaults and debt restructurings, and a central bank that moves the policy rate.
+[*][b]Derivatives (MATZU)[/b] — commodity futures with daily margin and [b]physical delivery[/b] from your Storage Silo to hedge your harvest, plus stock options.
+[*][b]Debts have consequences[/b] — attachments, insolvency proceedings, bankruptcy (optionally losing buildings in Argentina mode), bank loans, repo borrowing and your own credit rating.
+[*][b]Your own companies[/b] — found a Farming, Mining, Fishing, Industrial or Trading company (LLC or corporation) with its own books and taxes. Export to the Gotoro Empire, issue your own bonds and [b]take your corporation public[/b] with a real IPO.
+[*][b]The Stock Agency and Julián Ferreyra[/b] — a new building in town with your stockbroker: he has a schedule, comments on the market and your portfolio, has gift tastes, three heart events and a friendship discount on fees.
+[*][b]Gotoro gold[/b] — a foreign currency with an exchange rate. In Argentina mode: currency controls with a quota, the MEP dollar through bonds, a black market at Krobus's (watch out for raids) and devaluations.
+[*][b]Three difficulty levels[/b] — Casual, Realista and Argentina (high inflation, harsher taxes and collections, currency controls).
+[/list]
+
+[size=4][b]How to start[/b][/size]
+[list=1]
+[*]Install the mod and start or load a save: the economy starts that day (you register as a [i]monotributista[/i]).
+[*]Find the Valle Inversiones phone next to the board in town, or the [b]Stock Agency[/b], and open the [b]Terminal[/b]. Open your brokerage account: you get the recipe for a craftable Terminal for your farm.
+[*]Pay your tax bills each season at Lewis's ledger (or let auto debit pay them).
+[*]Read the newspaper letters: they tell you what moves the market.
+[/list]
+
+[size=4][b]Requirements[/b][/size]
+[list]
+[*]Stardew Valley 1.6.15 or later
+[*][url=https://www.nexusmods.com/stardewvalley/mods/2400]SMAPI[/url] 4.0 or later
+[*]Optional: [url=https://www.nexusmods.com/stardewvalley/mods/5098]Generic Mod Config Menu[/url]
+[/list]
+
+[size=4][b]Compatibility[/b][/size]
+[list]
+[*][b]Stardew Valley Expanded[/b]: supported. The mod never replaces maps; the Agency is placed on a free spot of the (already edited) town, and the phone moves to the nearest free tile. Use [font=Courier New]zuzu_compat[/font] to see where everything ended up and [font=Courier New]zuzu_agency here[/font] to move the Agency.
+[*]Mods that change sell prices may stack with or override the market prices.
+[*][b]Single player only[/b]. In multiplayer only the host runs the economy; farmhands play vanilla.
+[/list]
+
+[size=4][b]Configuration[/b][/size]
+Use Generic Mod Config Menu or [font=Courier New]config.json[/font]: difficulty for new saves, notices, letters, auto debit, building auction (Argentina), the Agency and the phone position, debug mode. A save keeps the difficulty it started with ([font=Courier New]zuzu_difficulty[/font] shows it).
+
+[size=4][b]Console commands (SMAPI)[/b][/size]
+[font=Courier New]zuzu_status, zuzu_prices, zuzu_inflation, zuzu_taxes, zuzu_results, zuzu_quotes, zuzu_portfolio, zuzu_rates, zuzu_bonds, zuzu_futures, zuzu_options, zuzu_credit, zuzu_legal, zuzu_companies, zuzu_company, zuzu_exports, zuzu_fx, zuzu_compat, zuzu_agency, zuzu_difficulty[/font]
+Debug commands (with debug mode on) let you force events, defaults, devaluations, debts and more.
+
+[size=4][b]Uninstalling[/b][/size]
+The phone and the Agency's Terminal are removed every night before saving, so your save does not depend on them. Before uninstalling, sell or remove any Terminal you crafted on your farm (otherwise it becomes an error item). The Agency and Julián disappear with the mod; your gold, items and buildings stay as they are.
+
+[size=4][b]Languages[/b][/size]
+English and Spanish (rioplatense). Translations welcome: copy [font=Courier New]i18n/default.json[/font].
+
+[size=4][b]Source code and license[/b][/size]
+Open source under the MIT license: [url=https://github.com/Flenuc/bolsa-de-valores-stardew-valley-mod]GitHub[/url]. Bug reports with your SMAPI log ([url=https://smapi.io/log]smapi.io/log[/url]) are very welcome.
+
+[line]
+
+[size=5][b][anchor=espanol]¿Qué es?[/anchor][/b][/size]
+
+La Bolsa de Valores de Zuzu es un simulador económico y financiero para Stardew Valley inspirado en la economía argentina. Todo lo que ganás y gastás pasa por una contabilidad de partida doble, y el mundo tiene sus propios precios, tasas y eventos.
+
+[size=4][b]Qué trae[/b][/size]
+[list]
+[*][b]Commodities con oferta y demanda[/b]: 15 productos cuyos precios reaccionan a tus ventas, a las estaciones, a los eventos y a las noticias.
+[*][b]Inflación[/b]: un índice de precios que encarece tiendas, construcciones e impuestos.
+[*][b]Impuestos argentinos[/b]: Monotributo, Responsable Inscripto, IVA, Ingresos Brutos, Seguridad e Higiene, ABL y Ganancias con anticipos; mora, intimaciones y gestión de cobro. Se pagan en el libro de Lewis, en la Agencia o con débito automático.
+[*][b]Bolsa (BYMZ)[/b]: acciones de 10 empresas ficticias, índice MERZU, Letras, cauciones, bonos soberanos y obligaciones negociables (tasa fija, variable y CER), calificaciones, defaults y canjes, y un BCRF que mueve la tasa.
+[*][b]Derivados (MATZU)[/b]: futuros de commodities con garantías y [b]entrega física[/b] desde tu Silo de Acopio, y opciones sobre acciones.
+[*][b]Deudas con consecuencias[/b]: embargos, concurso preventivo, quiebra (con remate de edificios opcional en Argentina), préstamos del Banco de Zuzu, caución tomadora y tu propia calificación crediticia.
+[*][b]Tus empresas[/b]: Agropecuaria, Minera, Pesquera, Industrial o Comercializadora (S.R.L. o S.A.), con libros e impuestos propios. Exportá a Gotoro, emití tus ON y [b]sacá tu S.A. a bolsa[/b].
+[*][b]La Agencia Bursátil y Julián Ferreyra[/b]: tu agente de bolsa, con horario, diálogos sobre el mercado y tu cartera, regalos, tres eventos de corazones y comisiones más bajas con la amistad.
+[*][b]Oro gotoro[/b]: la moneda extranjera. En modo Argentina hay cepo con cupo, dólar MEP con bonos, blue en lo de Krobus (cuidado con los operativos) y devaluaciones.
+[*][b]Tres dificultades[/b]: Casual, Realista y Argentina.
+[/list]
+
+[size=4][b]Requisitos[/b][/size]
+Stardew Valley 1.6.15 o posterior y SMAPI 4.0 o posterior. Opcional: Generic Mod Config Menu.
+
+[size=4][b]Compatibilidad[/b][/size]
+Compatible con [b]Stardew Valley Expanded[/b] (no reemplaza mapas; la Agencia se ubica en un lugar libre). Solo para un jugador.
+
+[size=4][b]Para empezar[/b][/size]
+Cargá una partida, buscá el teléfono de Valle Inversiones junto al tablero del pueblo o la Agencia Bursátil y abrí la Terminal. Pagá tus boletas cada estación y leé las cartas del Diario de Zuzu.
+
+Código abierto (licencia MIT) en [url=https://github.com/Flenuc/bolsa-de-valores-stardew-valley-mod]GitHub[/url].

@@ -13,6 +13,16 @@ y obligaciones negociables, con BCRF, curva de tasas, calificaciones, riesgo pa�
 garantías y entrega física en el Silo de Acopio, y opciones con compra y lanzamiento; desde el teléfono del pueblo o la
 Terminal Bursátil fabricable. Requiere Stardew Valley 1.6 y SMAPI 4.x.
 
+## Instalación
+
+1. Instalá [SMAPI](https://smapi.io) 4.0 o posterior (Stardew Valley 1.6.15+).
+2. Descomprimí `ZuzuMarket 1.0.0.zip` en la carpeta `Mods` del juego.
+3. Opcional: [Generic Mod Config Menu](https://www.nexusmods.com/stardewvalley/mods/5098) para configurarlo desde el juego.
+
+## Licencia
+
+MIT (ver `LICENSE`). Página de Nexus, resumen y guía de publicación en `docs/nexus/`.
+
 ## Compilar
 
 Requisitos: [.NET 8 SDK](https://dotnet.microsoft.com/download) y el juego instalado con SMAPI.

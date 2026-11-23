@@ -1,10 +1,13 @@
 {
-  "Name": "Bolsa de Valores de Zuzu",
+  "Name": "Zuzu Stock Exchange - Bolsa de Valores de Zuzu",
   "Author": "Flenuc",
-  "Version": "0.1.0",
-  "Description": "Simulador económico-financiero: commodities, inflación, impuestos argentinos y mercado de capitales.",
+  "Version": "1.0.0",
+  "Description": "An Argentine-flavored economy simulator: commodities with supply and demand, inflation, taxes, a full stock exchange, your own companies, debts and the Gotoro gold black market. / Simulador económico con impuestos argentinos y bolsa de valores.",
   "UniqueID": "Flenuc.ZuzuMarket",
   "EntryDll": "ZuzuMarket.dll",
   "MinimumApiVersion": "4.0.0",
+  "Dependencies": [
+    { "UniqueID": "spacechase0.GenericModConfigMenu", "IsRequired": false }
+  ],
   "UpdateKeys": [ "GitHub:Flenuc/bolsa-de-valores-stardew-valley-mod" ]
 }
