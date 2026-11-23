@@ -105,8 +105,11 @@ internal sealed partial class TerminalMenu
 
         foreach (MepOrder order in Broker.State.MepOrders)
         {
-            Text(b, T(order.ToGotoro ? "terminal.fx.pending-to-gtd" : "terminal.fx.pending-to-local", new { bond = order.BondId, units = order.Units, date = ShortDate(order.SettleOn) }), area.X, y, Muted);
-            y += 28;
+            foreach (string line in Wrap(T(order.ToGotoro ? "terminal.fx.pending-to-gtd" : "terminal.fx.pending-to-local", new { bond = order.BondId, units = order.Units, date = ShortDate(order.SettleOn) }), area.Width).Take(2))
+            {
+                Text(b, line, area.X, y, Muted);
+                y += 28;
+            }
         }
     }
 }

@@ -899,8 +899,8 @@
   "terminal.fx.help-free": "No controls: you buy and sell Gotoro gold at the official rate with no quota or surcharge, just a small spread.",
   "terminal.fx.deposit-notes": "Deposit Gotoro bills from your inventory ({{count}})",
   "terminal.fx.deposited": "You deposited your bills in your Gotoro gold account.",
-  "terminal.fx.pending-to-gtd": "Pending MEP: {{units}} lots of {{bond}} → Gotoro gold on {{date}}",
-  "terminal.fx.pending-to-local": "Pending MEP: {{units}} lots of {{bond}} → local gold on {{date}}",
+  "terminal.fx.pending-to-gtd": "Pending MEP: {{bond}} x{{units}}, to Gotoro gold on {{date}}",
+  "terminal.fx.pending-to-local": "Pending MEP: {{bond}} x{{units}}, to local gold on {{date}}",
 
   "cmd.fx.help": "Gotoro gold rates (official, MEP, black market), gap, your GTD account and devaluations.\n\nUsage: zuzu_fx",
   "cmd.fx.summary": "Official {{official}} · MEP {{mep}} · black {{blue}} · gap {{gap}} · controls: {{cepo}} · your account: {{gtd}} GTD (≈ {{value}})",

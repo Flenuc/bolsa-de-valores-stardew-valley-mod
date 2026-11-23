@@ -899,8 +899,8 @@
   "terminal.fx.help-free": "Sin cepo: comprás y vendés oro gotoro al oficial sin cupo ni recargo, solo con un spread chico.",
   "terminal.fx.deposit-notes": "Depositar billetes gotoro del inventario ({{count}})",
   "terminal.fx.deposited": "Depositaste tus billetes en la cuenta en oro gotoro.",
-  "terminal.fx.pending-to-gtd": "MEP pendiente: {{units}} láminas de {{bond}} → oro gotoro el {{date}}",
-  "terminal.fx.pending-to-local": "MEP pendiente: {{units}} láminas de {{bond}} → oro local el {{date}}",
+  "terminal.fx.pending-to-gtd": "MEP pendiente: {{bond}} x{{units}}, pasa a oro gotoro el {{date}}",
+  "terminal.fx.pending-to-local": "MEP pendiente: {{bond}} x{{units}}, pasa a oro local el {{date}}",
 
   "cmd.fx.help": "Cotizaciones del oro gotoro (oficial, MEP, blue), brecha, tu cuenta en GTD y las devaluaciones.\n\nUso: zuzu_fx",
   "cmd.fx.summary": "Oficial {{official}} · MEP {{mep}} · blue {{blue}} · brecha {{gap}} · cepo: {{cepo}} · tu cuenta: {{gtd}} GTD (≈ {{value}})",
