@@ -28,6 +28,8 @@ internal static class NewsText
                 return i18n.Get("news.default", new { issuer = Issuer(i18n, sim, n.Key) });
             case NewsKind.Restructuring:
                 return i18n.Get("news.restructuring", new { issuer = Issuer(i18n, sim, n.Key) });
+            case NewsKind.Devaluation:
+                return i18n.Get("news.devaluation", new { size = Formatting.Percent(i18n, n.Value), rate = Formatting.Money(i18n, (decimal)sim.Fx.Official) });
             case NewsKind.RatingChange:
                 string[] parts = n.Key.Split(':');
                 return i18n.Get(n.Value > 0 ? "news.upgrade" : "news.downgrade", new

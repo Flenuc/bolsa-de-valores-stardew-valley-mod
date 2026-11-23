@@ -76,6 +76,10 @@ public static class SystemAccounts
     public const string PrimaDeEmision = "3.1.03";
     public const string InteresesDeOn = "5.4.06";
     public const string GastosDeColocacion = "5.4.07";
+    public const string CuentaGotoro = "1.1.11";
+    public const string DiferenciaCambioPositiva = "4.2.05";
+    public const string DiferenciaCambioNegativa = "5.4.08";
+    public const string ImpuestoDivisas = "5.3.09";
 
     public static IReadOnlyList<string> All { get; } = new[]
     {
@@ -89,6 +93,7 @@ public static class SystemAccounts
         CaucionTomadora, DeudaConcursal, InteresesBancarios, IngresosPorRemate, QuitaConcursal,
         ResultadosAcumulados, TasasOtras, CobrosARendirPorSocio, ExportacionesACobrar, ParticipacionesEnSociedades,
         CobranzasARendirASociedades, DerechosDeExportacion, OnEmitidas, PrimaDeEmision, InteresesDeOn, GastosDeColocacion,
+        CuentaGotoro, DiferenciaCambioPositiva, DiferenciaCambioNegativa, ImpuestoDivisas,
     };
 }
 

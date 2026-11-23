@@ -26,6 +26,9 @@ public enum NewsKind
 
     /// <summary>Cambio de calificación (Key = "emisor:calificación"; Value = +1 sube, −1 baja).</summary>
     RatingChange,
+
+    /// <summary>Devaluación del oficial (<see cref="NewsItem.Value"/> = salto).</summary>
+    Devaluation,
 }
 
 public sealed record NewsItem(EconomicDate Date, NewsKind Kind, string Key, double Value);

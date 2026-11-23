@@ -32,6 +32,23 @@ internal sealed class TerminalActions
 
     public void OpenExports(EconomySimulation sim) => _exports.Open(sim);
 
+    /// <summary>Billetes gotoro que el jugador tiene en el inventario.</summary>
+    public static int NotesInInventory() =>
+        Game1.player.Items.Where(i => i?.QualifiedItemId == ModObjects.BillQualifiedId).Sum(i => i!.Stack);
+
+    /// <summary>Deposita en la cuenta en oro gotoro todos los billetes del inventario.</summary>
+    public TradeError DepositNotes(EconomySimulation sim)
+    {
+        int notes = NotesInInventory();
+        TradeError error = sim.Broker.DepositNotes(notes, sim.CurrentDate);
+        if (error == TradeError.None)
+        {
+            Game1.player.Items.ReduceId(ModObjects.BillQualifiedId, notes);
+        }
+
+        return error;
+    }
+
     public CompanyError CreateCompany(EconomySimulation sim, string type, string form, long capital)
     {
         var notices = new List<CompanyNotice>();

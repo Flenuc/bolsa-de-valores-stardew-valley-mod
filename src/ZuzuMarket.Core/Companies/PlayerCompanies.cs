@@ -67,6 +67,9 @@ public sealed partial class PlayerCompanies
 
     public TradeRules Trade => _data.Trade;
 
+    /// <summary>Liquidación de las exportaciones (dólar blend con cepo; 1 sin cepo).</summary>
+    public Func<double> ExportFactor { get; set; } = () => 1;
+
     public CompaniesState State => _s;
 
     public IEnumerable<CompanyState> Active => _s.Companies.Where(c => c.Active);
@@ -477,7 +480,7 @@ public sealed partial class PlayerCompanies
             return null;
         }
 
-        decimal unit = item.BasePrice * (decimal)(_market.GetMultiplierForItem(item.ItemId) * (1 + qualityPremium)) * (1 + Trade.GotoroPremium);
+        decimal unit = item.BasePrice * (decimal)(_market.GetMultiplierForItem(item.ItemId) * (1 + qualityPremium) * ExportFactor()) * (1 + Trade.GotoroPremium);
         return (unit, Trade.ExportDuty(commodity.Id, _difficulty().TradeDuties));
     }
 

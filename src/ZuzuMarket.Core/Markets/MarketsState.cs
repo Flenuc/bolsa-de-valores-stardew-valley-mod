@@ -118,10 +118,41 @@ public sealed class BrokerState
 
     public List<Trade> Trades { get; set; } = new();
 
+    /// <summary>Saldo de la cuenta en oro gotoro (GTD).</summary>
+    public decimal Gtd { get; set; }
+
+    /// <summary>Oficial comprado en la estación (cupo) y la estación a la que corresponde.</summary>
+    public decimal OfficialBought { get; set; }
+
+    public Time.FiscalPeriod? OfficialPeriod { get; set; }
+
+    /// <summary>Operaciones MEP con su segunda pata pendiente (parking).</summary>
+    public List<MepOrder> MepOrders { get; set; } = new();
+
+    /// <summary>Blue comprado el día anterior (para el riesgo de operativo).</summary>
+    public decimal BlueBoughtGtd { get; set; }
+
+    public decimal BluePaid { get; set; }
+
     /// <summary>Valor total de la cartera al cierre de cada día hábil (último año).</summary>
     public List<IndexClose> ValueHistory { get; set; } = new();
 
     public long NextId { get; set; } = 1;
+}
+
+/// <summary>MEP: compra de un bono en una moneda y venta en la otra al vencer el parking.</summary>
+public sealed class MepOrder
+{
+    public long Id { get; set; }
+
+    public string BondId { get; set; } = "";
+
+    public long Units { get; set; }
+
+    /// <summary>true: de oro local a oro gotoro; false: al revés.</summary>
+    public bool ToGotoro { get; set; }
+
+    public Time.EconomicDate SettleOn { get; set; }
 }
 
 public sealed class MarketsState
@@ -174,6 +205,7 @@ public enum MarketNoticeKind
     OptionExpired,
     RepoRepaid,
     RepoForcedSale,
+    MepSettled,
 }
 
 /// <summary>Algo del mercado que el juego debe comunicar (dividendo cobrado, vencimiento, licitación).</summary>

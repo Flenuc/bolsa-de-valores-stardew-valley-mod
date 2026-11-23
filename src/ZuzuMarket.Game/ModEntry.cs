@@ -119,7 +119,7 @@ internal sealed class ModEntry : Mod
         _terminalActions.PayBills = () => DelayedAction.functionAfterDelay(() => { if (Simulation is not null) { _municipalidad.OpenDesk(Simulation); } }, 100);
         helper.Events.Display.MenuChanged += silo.OnMenuChanged;
         helper.Events.Display.MenuChanged += exports.OnMenuChanged;
-        var objects = new ModObjects(helper.Translation);
+        var objects = new ModObjects(helper.Translation, () => Simulation);
 
         var harmony = new Harmony(ModManifest.UniqueID);
         SellPricePatch.Apply(harmony, Monitor);
@@ -135,6 +135,7 @@ internal sealed class ModEntry : Mod
         helper.Events.Content.AssetRequested += BuildingInflation.OnAssetRequested;
         helper.Events.GameLoop.UpdateTicked += _money.OnUpdateTicked;
         helper.Events.Player.InventoryChanged += _money.OnInventoryChanged;
+        helper.Events.Player.InventoryChanged += OnBlueBought;
         helper.Events.Input.ButtonPressed += _municipalidad.OnButtonPressed;
         helper.Events.Input.ButtonPressed += OnButtonPressed;
         helper.Events.Content.AssetRequested += objects.OnAssetRequested;
@@ -172,6 +173,8 @@ internal sealed class ModEntry : Mod
                 Monitor.Log(Helper.Translation.Get("log.state-created", new { difficulty = Simulation.Difficulty.Name }), LogLevel.Info);
             }
 
+            Helper.GameContent.InvalidateCache("Data/Shops");
+
             // La amistad con Julián baja las comisiones de la ALyC.
             Simulation.Broker.CommissionDiscount = () => _config.AgencyEnabled ? JulianNpc.CommissionDiscount : 0;
         }
@@ -208,8 +211,9 @@ internal sealed class ModEntry : Mod
         MoneyBridge.Reconcile(Simulation, Helper.Translation.Get("entry.reconcile-day-start"));
         ApplyLegal(info);
 
-        // El texto de las cartas y el costo de las construcciones dependen del estado del día.
+        // El texto de las cartas, el costo de las construcciones y el blue de Krobus dependen del estado del día.
         Helper.GameContent.InvalidateCache(BuildingInflation.Asset);
+        Helper.GameContent.InvalidateCache("Data/Shops");
         _news!.Publish(info);
         _taxMail!.Publish(info.TaxNotices);
         _brokerMail!.Publish(info.MarketNotices, Simulation.Broker.IsOpen);
@@ -301,6 +305,22 @@ internal sealed class ModEntry : Mod
 
         _legalMail!.Publish(notices);
         _money!.Reset();
+    }
+
+    /// <summary>Billetes gotoro comprados en la tienda de Krobus: quedan registrados para el riesgo de operativo.</summary>
+    private void OnBlueBought(object? sender, InventoryChangedEventArgs e)
+    {
+        if (Simulation is null || !e.IsLocalPlayer || Game1.activeClickableMenu is not StardewValley.Menus.ShopMenu { ShopId: ModObjects.KrobusShop })
+        {
+            return;
+        }
+
+        int bought = e.Added.Where(i => i.QualifiedItemId == ModObjects.BillQualifiedId).Sum(i => i.Stack)
+            + e.QuantityChanged.Where(c => c.Item.QualifiedItemId == ModObjects.BillQualifiedId && c.NewSize > c.OldSize).Sum(c => c.NewSize - c.OldSize);
+        if (bought > 0)
+        {
+            Simulation.RecordBluePurchase(bought, bought * ModObjects.BlueAsk(Simulation));
+        }
     }
 
     /// <summary>Teléfono de Valle Inversiones o Terminal Bursátil → abre la Terminal.</summary>

@@ -6,6 +6,7 @@ using ZuzuMarket.Core.Ledger;
 using ZuzuMarket.Core.Legal;
 using ZuzuMarket.Core.Macro;
 using ZuzuMarket.Core.Markets;
+using ZuzuMarket.Core.Money;
 using ZuzuMarket.Core.Random;
 using ZuzuMarket.Core.State;
 using ZuzuMarket.Core.Taxation;
@@ -91,6 +92,15 @@ public sealed class EconomySimulation
         Broker = new Broker(data, state.Markets, ledger, Stocks, CentralBank, Credit, Inflation, Market, Events, Taxes, () => Difficulty);
         Legal = new LegalEngine(data, state.Legal, ledger, Taxes, Broker, CentralBank, () => Difficulty);
         Companies = new PlayerCompanies(data, state.Companies, ledger, Taxes, Legal, Inflation, Market, () => Difficulty, Broker, Credit, Stocks);
+        Fx = new ExchangeRateModel(data.Fx, state.Fx);
+        Broker.Fx = Fx;
+        Broker.FxRules = () => FxRules;
+        Companies.ExportFactor = () => ExportLiquidationFactor;
+        if (!Fx.State.Started)
+        {
+            // Partida nueva, o del esquema 9 que recién migra: el tipo de cambio arranca hoy.
+            Fx.Start(state.CurrentDate, FxRules, Inflation.PeriodRate);
+        }
 
         if (!Inflation.HasStarted)
         {
@@ -149,6 +159,26 @@ public sealed class EconomySimulation
     public LegalEngine Legal { get; }
 
     public PlayerCompanies Companies { get; }
+
+    public ExchangeRateModel Fx { get; }
+
+    public FxDifficultyRules FxRules => Data.Fx.For(_state.DifficultyId);
+
+    /// <summary>
+    /// Cuánto cobra un exportador por cada oro de valor local: liquida al dólar blend (parte oficial, parte MEP)
+    /// en vez del MEP que refleja los precios locales. Sin cepo es 1.
+    /// </summary>
+    public double ExportLiquidationFactor => FxRules.Cepo ? ((1 - FxRules.ExportBlend) / (1 + Fx.Gap)) + FxRules.ExportBlend : 1;
+
+    /// <summary>Debug: devaluación inmediata.</summary>
+    public void ForceDevaluation(double size) => ApplyDevaluation(_state.CurrentDate, Fx.Devalue(_state.CurrentDate, size));
+
+    /// <summary>El juego avisa que el jugador compró billetes gotoro en negro (Krobus).</summary>
+    public void RecordBluePurchase(decimal gtd, decimal paid)
+    {
+        Broker.State.BlueBoughtGtd += gtd;
+        Broker.State.BluePaid += paid;
+    }
 
     public Broker Broker { get; }
 
@@ -393,6 +423,11 @@ public sealed class EconomySimulation
         if (shopId is not null && Data.Trade.ImportShops.Contains(shopId, StringComparer.OrdinalIgnoreCase))
         {
             multiplier *= (double)(1 + Data.Trade.ImportSurcharge(Difficulty.TradeDuties));
+            if (FxRules.Cepo)
+            {
+                // Se importa al oficial con recargo: con brecha, relativamente más barato que lo local.
+                multiplier *= (1 + FxRules.ImportSurcharge) / (1 + Fx.Gap);
+            }
         }
 
         return multiplier;
@@ -534,6 +569,65 @@ public sealed class EconomySimulation
         return true;
     }
 
+    /// <summary>Operativo contra el blue: el día después de comprar billetes en negro puede caer una multa.</summary>
+    private void CheckBlueRaid(EconomicDate day)
+    {
+        decimal paid = Broker.State.BluePaid;
+        if (paid <= 0)
+        {
+            return;
+        }
+
+        Broker.State.BlueBoughtGtd = 0;
+        Broker.State.BluePaid = 0;
+        if (!FxRules.Cepo || RandomStreams.For(_state.Seed, day, "operativo").NextDouble() >= FxRules.RaidChance)
+        {
+            return;
+        }
+
+        long fine = MoneyRounding.ToGold(paid * FxRules.RaidFine);
+        if (fine <= 0)
+        {
+            return;
+        }
+
+        var notices = new List<TaxNotice>();
+        Ledger.Post(LedgerEntities.Jugador, day, new EntryText("Multa por compra de divisas en el mercado ilegal", "entry.fx-raid"), EntrySources.Ajuste,
+            JournalLine.ToDebit(SystemAccounts.InteresesYMultasFiscales, fine),
+            JournalLine.ToCredit(SystemAccounts.ImpuestosAPagarArf, fine));
+        Taxes.CreateExternal(TaxKind.DeudaVarios, day.FiscalPeriod, fine, day, day.AddDays(7).NextBusinessDayOrSelf(), notices);
+        _legalDay.Notices.Add(new LegalNotice(LegalNoticeKind.BlueRaid, day, fine));
+    }
+
+    /// <summary>Efectos de una devaluación: traslado a precios, bolsa, tasa y noticia.</summary>
+    private void ApplyDevaluation(EconomicDate day, double size)
+    {
+        if (size <= 0)
+        {
+            return;
+        }
+
+        Inflation.AddShock(FxRules.PassThrough * size);
+        RecalculatePrices();
+        foreach (CompanyDefinition company in Data.Companies)
+        {
+            // Exportadoras arriba, consumo abajo.
+            double delta = company.Sector switch
+            {
+                "Comercio exterior" or "Mineria" or "Minería" or "Agro" or "Pesca" => 0.4 * size,
+                "Retail" or "Construccion" or "Construcción" => -0.4 * size,
+                _ => 0,
+            };
+            if (delta != 0)
+            {
+                Stocks.Shock(company.Ticker, delta);
+            }
+        }
+
+        RecordDecision(CentralBank.EmergencyHike(day));
+        Events.AddNews(new NewsItem(day, NewsKind.Devaluation, "", size));
+    }
+
     private void RecordDecision(RateDecision decision)
     {
         string direction = decision.Change > 0.00001 ? "up" : decision.Change < -0.00001 ? "down" : "hold";
@@ -562,6 +656,7 @@ public sealed class EconomySimulation
     /// <summary>Al empezar la estación: BCRF, calificaciones, defaults, canjes, pagos de bonos y licitaciones.</summary>
     private void OnMarketsPeriodStart(EconomicDate day, DifficultyDefinition difficulty, List<MarketNotice> marketNotices)
     {
+        ApplyDevaluation(day, Fx.RollDevaluation(day, FxRules, RandomStreams.For(_state.Seed, day, ExchangeRateModel.Stream + ".devaluacion")));
         RecordDecision(CentralBank.Meet(day, Inflation.PeriodRate, difficulty));
 
         foreach (CreditEvent e in Credit.OnPeriodStart(day, difficulty, RandomStreams.For(_state.Seed, day, CreditStream)))
@@ -671,10 +766,12 @@ public sealed class EconomySimulation
             if (e.InflationShock > 0)
             {
                 RecordDecision(CentralBank.EmergencyHike(day));
+                Fx.WidenGap(e.InflationShock * 2, FxRules);
             }
         }
 
         Inflation.AdvanceDay();
+        Fx.Step(day, FxRules, Inflation.PeriodRate, RandomStreams.For(_state.Seed, day, ExchangeRateModel.Stream));
         Market.Step(day, Inflation.Index, (double)difficulty.PriceVolatility, _state.Seed, c => Events.PriceImpact(c, day));
         Stocks.Step(day, Market, Inflation.Index, (double)difficulty.PriceVolatility, _state.Seed);
         marketNotices.AddRange(Broker.OnDay(day));
@@ -696,6 +793,9 @@ public sealed class EconomySimulation
         Legal.RecordTaxNotices(taxNotices.Skip(before));
         Legal.OnDay(day, _legalDay);
         Companies.OnDay(day, q => Broker.DerivativesRules.QualityPremium(q), _companyNotices);
+        marketNotices.AddRange(Broker.SettleMep(day));
+        Broker.RevalueGotoro(day);
+        CheckBlueRaid(day);
         Broker.RecordValue(day);
     }
 

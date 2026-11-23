@@ -82,6 +82,8 @@ Si el juego no está en la ruta estándar de Steam/GOG, agregá `<GamePath>` en 
 | `zuzu_unlock_companies` | (solo `DebugMode`) desbloquea todos los tipos de sociedad |
 | `zuzu_compat` | Variante del pueblo (vanilla o SVE), dónde quedaron la Agencia y el teléfono, y el estado de Julián |
 | `zuzu_agency [info\|here\|auto]` | Ubica la Agencia: `here` deja la puerta justo arriba tuyo; `auto` busca un lugar libre |
+| `zuzu_fx` | Cotizaciones del oro gotoro (oficial, MEP, blue), brecha, tu cuenta en GTD y devaluaciones |
+| `zuzu_devalue <porcentaje>` | (solo `DebugMode`) devalúa el oficial |
 | `zuzu_place_phone` | Mueve el teléfono de Valle Inversiones al tile que tenés enfrente (en el pueblo) |
 | `zuzu_terminal` | (solo `DebugMode`) abre la Terminal Bursátil en cualquier lado |
 | `zuzu_trade buy\|sell <especie> <cant>` | (solo `DebugMode`) opera sin la Terminal |

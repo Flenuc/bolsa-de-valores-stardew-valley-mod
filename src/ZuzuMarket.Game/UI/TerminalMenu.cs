@@ -26,6 +26,7 @@ internal sealed partial class TerminalMenu : IClickableMenu
         Stocks,
         FixedIncome,
         Derivatives,
+        Dollar,
         Credit,
         Companies,
         Portfolio,
@@ -156,6 +157,9 @@ internal sealed partial class TerminalMenu : IClickableMenu
                 case Tab.Derivatives:
                     DrawDerivatives(b, content);
                     break;
+                case Tab.Dollar:
+                    DrawDollar(b, content);
+                    break;
                 case Tab.Credit:
                     DrawCredit(b, content);
                     break;
@@ -216,13 +220,13 @@ internal sealed partial class TerminalMenu : IClickableMenu
         foreach (Tab tab in Enum.GetValues<Tab>())
         {
             string label = T($"terminal.tab.{tab}");
-            int w = (int)Game1.smallFont.MeasureString(label).X + 40;
+            int w = (int)Game1.smallFont.MeasureString(label).X + 24;
             Button(b, new Rectangle(x, y, w, 52), label, () =>
             {
                 _tab = tab;
                 _message = null;
             }, enabled: Broker.IsOpen || tab == Tab.Panel, selected: _tab == tab);
-            x += w + 8;
+            x += w + 6;
         }
     }
 

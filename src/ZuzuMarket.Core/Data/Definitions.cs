@@ -251,8 +251,10 @@ public sealed class GameData
         IReadOnlyList<BondTemplate>? bondTemplates = null,
         LegalRules? legal = null,
         PlayerCompanyRules? playerCompanies = null,
-        Trade.TradeRules? trade = null)
+        Trade.TradeRules? trade = null,
+        Macro.FxRules? fx = null)
     {
+        Fx = fx ?? new Macro.FxRules();
         Legal = legal ?? new LegalRules();
         PlayerCompanies = playerCompanies ?? new PlayerCompanyRules();
         Trade = trade ?? new Trade.TradeRules();
@@ -292,6 +294,8 @@ public sealed class GameData
     public PlayerCompanyRules PlayerCompanies { get; }
 
     public Trade.TradeRules Trade { get; }
+
+    public Macro.FxRules Fx { get; }
 
     public EventDefinition? FindEvent(string id) =>
         Events.FirstOrDefault(e => string.Equals(e.Id, id, StringComparison.OrdinalIgnoreCase));

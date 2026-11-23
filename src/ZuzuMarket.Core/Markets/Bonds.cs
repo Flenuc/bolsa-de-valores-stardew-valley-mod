@@ -31,6 +31,9 @@ public sealed class BondTemplate
 
     /// <summary>Cuotas de amortización al final (1 = todo al vencimiento).</summary>
     public int AmortizationInstallments { get; set; } = 1;
+
+    /// <summary>"GTD" para los bonos ley Gotoro en oro gotoro; vacío = oro local.</summary>
+    public string Currency { get; set; } = "";
 }
 
 /// <summary>Serie emitida.</summary>
@@ -64,6 +67,11 @@ public sealed class BondSeries
     public bool IsSovereign => Issuer == CreditEngine.Sovereign;
 
     public bool IsRestructured { get; set; }
+
+    /// <summary>"GTD" = bono en oro gotoro (precio y pagos en GTD; en oro local cotiza al MEP).</summary>
+    public string Currency { get; set; } = "";
+
+    public bool IsGotoro => Currency.Equals("GTD", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>Láminas (VN 100) en circulación: solo las ON de las sociedades del jugador (las paga la sociedad).</summary>
     public long IssuedUnits { get; set; }

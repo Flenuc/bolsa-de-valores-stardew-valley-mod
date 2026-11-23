@@ -516,7 +516,8 @@ Cada parámetro puede además ajustarse individualmente en `config.json` (y con 
 | **7A — Expansión empresaria** | Nuevas empresas del jugador, S.A., retenciones/aranceles completos, comercializadora Gotoro | Tus sociedades | Sociedades con libro e impuestos propios |
 | **7B — Mercado de capitales propio** | Emisión de ON propias, IPO de una S.A. que cotiza en BYMZ (implementado) | Final del juego | IPO funcional |
 | **8 — Edificio, NPC y pulido** (implementado: Agencia con fachada validada para SVE, Julián Ferreyra con horario, diálogos del mercado, regalos, 3 eventos y comisión preferencial; balance por simulación; GMCM) | Agencia Bursátil en el lote al sur de la plaza, NPC agente de bolsa (horarios, diálogos, amistad, eventos), gráficos, balance de dificultades, i18n en/es, compatibilidad con GMCM | Versión 1.0 | Partida de prueba de 1 año en cada dificultad |
-| **9 — Multijugador / Argentina avanzada** | Host autoritativo, cuentas por granjero; tipo de cambio, cepo, brecha | — | — |
+| **9 — Argentina avanzada** (implementado) | Tipo de cambio con el oro gotoro, cepo, MEP, blue, devaluaciones | Cobertura y dólar | Brecha y cupo en Argentina, sin brecha en Casual/Realista |
+| **Multijugador** (fuera del alcance por ahora) | Host autoritativo, cuentas por granjero | — | — |
 
 ---
 

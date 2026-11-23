@@ -94,14 +94,18 @@ public class FixedIncomeTests
     public void Bonds_AreIssuedNearParAtStart()
     {
         EconomySimulation sim = NewAccount();
-        Assert.Equal(new[] { "BOCER1", "BOFE1", "BOVA1" }, sim.Broker.ActiveBonds(sovereign: true).Select(b => b.Id).OrderBy(x => x));
+        Assert.Equal(new[] { "BOCER1", "BOFE1", "BOVA1", "GD1", "GDL1" }, sim.Broker.ActiveBonds(sovereign: true).Select(b => b.Id).OrderBy(x => x));
         Assert.Equal(5, sim.Broker.ActiveBonds(sovereign: false).Count);
         foreach (BondSeries bond in sim.Broker.ActiveBonds(true).Concat(sim.Broker.ActiveBonds(false)))
         {
-            double price = sim.Broker.BondPrice(bond, Monday);
+            double price = sim.Broker.BondNativePrice(bond, Monday); // en la moneda del bono (los GD, en oro gotoro)
             Assert.InRange(price, 80, 120);
             double yield = sim.Broker.BondYield(bond, Monday);
-            Assert.Equal(price, BondMath.Price(bond, Monday, sim.Broker.Context(bond.Issuer) with { NominalYield = _ => bond.Type == BondType.Cer ? yield + sim.Inflation.PeriodRate : yield }), 3);
+            Assert.Equal(price, BondMath.Price(bond, Monday, sim.Broker.ContextFor(bond) with { NominalYield = _ => bond.Type == BondType.Cer ? yield + sim.Inflation.PeriodRate : yield }), 3);
+            if (bond.IsGotoro)
+            {
+                Assert.Equal(price * (double)sim.Broker.Mep, sim.Broker.BondPrice(bond, Monday), 6); // en oro local, al MEP
+            }
         }
     }
 

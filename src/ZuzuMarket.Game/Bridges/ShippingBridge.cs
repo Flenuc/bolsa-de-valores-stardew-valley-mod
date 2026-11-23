@@ -14,7 +14,8 @@ internal static class ShippingBridge
         var items = new List<SoldItem>();
         foreach (Item? item in Game1.getFarm().getShippingBin(Game1.player))
         {
-            if (item is null || item.Stack <= 0)
+            // Los billetes gotoro no son una venta (no pagan impuestos): el oro llega y se concilia.
+            if (item is null || item.Stack <= 0 || item.QualifiedItemId == Content.ModObjects.BillQualifiedId)
             {
                 continue;
             }

@@ -557,7 +557,7 @@ public sealed partial class Broker
         double futures = _s.Derivatives.FuturesPositions.Sum(p =>
             FindFuture(p.ContractId) is { } f ? (FuturePrice(f, date) - p.LastSettle) * ContractSize(f) * p.Quantity : 0);
         decimal cauciones = _s.Broker.Cauciones.Sum(c => c.Principal);
-        return MoneyRounding.Round((decimal)(stocks + letras + bonds + options + futures)) + cauciones + MarginBalance;
+        return MoneyRounding.Round((decimal)(stocks + letras + bonds + options + futures)) + cauciones + MarginBalance + GotoroValue;
     }
 
     private TradeError Validate(InstrumentKind kind, string id, TradeSide side, long quantity, EconomicDate date, int timeOfDay, decimal buyTotal)

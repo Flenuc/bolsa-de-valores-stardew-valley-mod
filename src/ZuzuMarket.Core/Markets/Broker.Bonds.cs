@@ -21,22 +21,33 @@ public sealed partial class Broker
         _inflation.Index,
         days => Yield(days, issuer) + Rules.BondSpread);
 
+    /// <summary>Contexto de valuación: los bonos en oro gotoro se descuentan a la tasa de Gotoro, sin inflación local.</summary>
+    public BondContext ContextFor(BondSeries bond) => bond.IsGotoro
+        ? new BondContext(GotoroRate, 0, 1, days => GotoroRate + Rules.Premium(days) + _credit.Spread(bond.Issuer) + Rules.BondSpread)
+        : Context(bond.Issuer);
+
+    private double GotoroRate => Fx?.Rules.GotoroRate ?? 0.008;
+
     public bool IsDefaulted(BondSeries bond) => _credit.IsDefaulted(bond.Issuer);
 
-    /// <summary>Precio por lámina de VN 100 (en default: valor de recupero).</summary>
-    public double BondPrice(BondSeries bond, EconomicDate date)
+    /// <summary>Precio por lámina de VN 100 en la moneda del bono (en default: valor de recupero).</summary>
+    public double BondNativePrice(BondSeries bond, EconomicDate date)
     {
-        BondContext ctx = Context(bond.Issuer);
+        BondContext ctx = ContextFor(bond);
         return IsDefaulted(bond) ? BondMath.DefaultedPrice(bond, ctx, _credit.Recovery(bond.Issuer)) : BondMath.Price(bond, date, ctx);
     }
 
-    /// <summary>TIR mensual al precio vigente.</summary>
+    /// <summary>Precio por lámina de VN 100 en oro local (los bonos en oro gotoro, al MEP).</summary>
+    public double BondPrice(BondSeries bond, EconomicDate date) =>
+        BondNativePrice(bond, date) * (bond.IsGotoro ? Fx?.Mep ?? 1 : 1);
+
+    /// <summary>TIR mensual al precio vigente (en la moneda del bono).</summary>
     public double BondYield(BondSeries bond, EconomicDate date) =>
-        BondMath.Yield(bond, date, Context(bond.Issuer), BondPrice(bond, date));
+        BondMath.Yield(bond, date, ContextFor(bond), BondNativePrice(bond, date));
 
-    public double BondDuration(BondSeries bond, EconomicDate date) => BondMath.Duration(bond, date, Context(bond.Issuer));
+    public double BondDuration(BondSeries bond, EconomicDate date) => BondMath.Duration(bond, date, ContextFor(bond));
 
-    public IReadOnlyList<BondCashFlow> BondFlows(BondSeries bond) => BondMath.RemainingFlows(bond, Context(bond.Issuer));
+    public IReadOnlyList<BondCashFlow> BondFlows(BondSeries bond) => BondMath.RemainingFlows(bond, ContextFor(bond));
 
     public string Rating(string issuer) => _credit.Issuers.TryGetValue(issuer, out IssuerState? s) ? s.Rating : "-";
 
@@ -51,9 +62,13 @@ public sealed partial class Broker
                 continue;
             }
 
+            bool gotoro = t.Currency.Equals("GTD", StringComparison.OrdinalIgnoreCase);
+            double fixedYield = gotoro
+                ? GotoroRate + Rules.Premium(t.TenorSeasons * EconomicDate.DaysPerSeason) + _credit.Spread(t.Issuer)
+                : Yield(t.TenorSeasons * EconomicDate.DaysPerSeason, t.Issuer);
             double coupon = t.Type switch
             {
-                BondType.Fixed => Math.Round(Yield(t.TenorSeasons * EconomicDate.DaysPerSeason, t.Issuer) / 0.0025) * 0.0025,
+                BondType.Fixed => Math.Round(fixedYield / 0.0025) * 0.0025,
                 _ => t.Coupon,
             };
             _s.Bonds.Add(new BondSeries
@@ -67,6 +82,7 @@ public sealed partial class Broker
                 CouponRate = coupon,
                 AmortizationInstallments = Math.Clamp(t.AmortizationInstallments, 1, t.TenorSeasons),
                 CerBase = _inflation.Index,
+                Currency = t.Currency,
             });
         }
     }
@@ -80,7 +96,7 @@ public sealed partial class Broker
             while (bond.NextPayment is EconomicDate due && due <= date && !IsDefaulted(bond))
             {
                 int k = bond.PaymentsMade + 1;
-                BondCashFlow flow = BondMath.RemainingFlows(bond, Context(bond.Issuer))[0];
+                BondCashFlow flow = BondMath.RemainingFlows(bond, ContextFor(bond))[0];
                 if (bond.IssuedUnits > 0 && PayIssuer is not null && !PayIssuer(bond, flow, date))
                 {
                     break;
@@ -129,6 +145,7 @@ public sealed partial class Broker
                 AmortizationInstallments = Rules.RestructuredInstallments,
                 CerBase = _inflation.Index,
                 IsRestructured = true,
+                Currency = old.Currency,
             };
             _s.Bonds.Remove(old);
             _s.Bonds.Add(exchange);
@@ -184,15 +201,22 @@ public sealed partial class Broker
 
     private MarketNotice Collect(BondSeries bond, Holding holding, BondCashFlow flow, EconomicDate date)
     {
-        decimal coupon = MoneyRounding.Round((decimal)flow.Coupon * holding.Quantity);
-        decimal amortization = MoneyRounding.Round((decimal)flow.Amortization * holding.Quantity);
+        // Los bonos en oro gotoro pagan en GTD: se acreditan en esa cuenta y se contabilizan al oficial.
+        decimal fx = bond.IsGotoro ? (decimal)(Fx?.Official ?? 1) : 1;
+        decimal coupon = MoneyRounding.Round((decimal)flow.Coupon * holding.Quantity * fx);
+        decimal amortization = MoneyRounding.Round((decimal)flow.Amortization * holding.Quantity * fx);
+        if (bond.IsGotoro)
+        {
+            _s.Broker.Gtd += MoneyRounding.Round((decimal)flow.Total * holding.Quantity);
+        }
+
         double outstandingBefore = bond.OutstandingBefore(flow.Payment);
         decimal costPortion = flow.Amortization <= 0 ? 0
             : bond.PaymentsMade + 1 >= bond.TenorSeasons ? holding.CostBasis
             : MoneyRounding.Round(holding.CostBasis * (decimal)(bond.AmortizationFraction(flow.Payment) / outstandingBefore));
         decimal result = amortization - costPortion;
 
-        var lines = new List<JournalLine> { JournalLine.ToDebit(SystemAccounts.CuentaComitente, coupon + amortization) };
+        var lines = new List<JournalLine> { JournalLine.ToDebit(bond.IsGotoro ? SystemAccounts.CuentaGotoro : SystemAccounts.CuentaComitente, coupon + amortization) };
         if (coupon > 0)
         {
             lines.Add(JournalLine.ToCredit(SystemAccounts.InteresesGanados, coupon));

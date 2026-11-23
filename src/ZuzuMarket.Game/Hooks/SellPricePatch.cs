@@ -26,6 +26,13 @@ internal static class SellPricePatch
     {
         try
         {
+            if (__instance.QualifiedItemId == Content.ModObjects.BillQualifiedId)
+            {
+                // El billete gotoro se vende al blue comprador (o al oficial, sin cepo).
+                __result = PriceService.Simulation is { } sim ? Content.ModObjects.BlueBid(sim) : __result;
+                return;
+            }
+
             __result = PriceService.Apply(__result, PriceService.SellMultiplier(__instance.ItemId, __instance.Category));
         }
         catch (Exception ex)

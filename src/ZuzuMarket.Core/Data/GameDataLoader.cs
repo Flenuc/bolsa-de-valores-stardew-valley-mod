@@ -40,6 +40,7 @@ public static class GameDataLoader
     public const string LegalFile = "legal.json";
     public const string PlayerCompaniesFile = "player-companies.json";
     public const string TradeFile = "trade.json";
+    public const string FxFile = "fx.json";
 
     public static IReadOnlyList<string> RequiredDifficulties { get; } = new[] { "casual", "realista", "argentina" };
 
@@ -78,16 +79,17 @@ public static class GameDataLoader
         string? legal = Read(LegalFile);
         string? playerCompanies = Read(PlayerCompaniesFile);
         string? trade = Read(TradeFile);
+        string? fx = Read(FxFile);
         if (accounts is null || commodities is null || difficulties is null || events is null || taxes is null || companies is null || markets is null || ratings is null || bonds is null || legal is null
-            || playerCompanies is null || trade is null)
+            || playerCompanies is null || trade is null || fx is null)
         {
             return new DataLoadResult(null, errors);
         }
 
-        return LoadFromJson(accounts, commodities, difficulties, events, taxes, companies, markets, ratings, bonds, legal, playerCompanies, trade);
+        return LoadFromJson(accounts, commodities, difficulties, events, taxes, companies, markets, ratings, bonds, legal, playerCompanies, trade, fx);
     }
 
-    public static DataLoadResult LoadFromJson(string accountsJson, string commoditiesJson, string difficultiesJson, string eventsJson = "[]", string? taxesJson = null, string? companiesJson = null, string? marketsJson = null, string? ratingsJson = null, string? bondsJson = null, string? legalJson = null, string? playerCompaniesJson = null, string? tradeJson = null)
+    public static DataLoadResult LoadFromJson(string accountsJson, string commoditiesJson, string difficultiesJson, string eventsJson = "[]", string? taxesJson = null, string? companiesJson = null, string? marketsJson = null, string? ratingsJson = null, string? bondsJson = null, string? legalJson = null, string? playerCompaniesJson = null, string? tradeJson = null, string? fxJson = null)
     {
         var errors = new List<string>();
         List<AccountDefinition>? accounts = Deserialize<List<AccountDefinition>>(accountsJson, AccountsFile, errors);
@@ -102,8 +104,9 @@ public static class GameDataLoader
         LegalRules? legal = legalJson is null ? new LegalRules() : Deserialize<LegalRules>(legalJson, LegalFile, errors);
         PlayerCompanyRules? playerCompanies = playerCompaniesJson is null ? new PlayerCompanyRules() : Deserialize<PlayerCompanyRules>(playerCompaniesJson, PlayerCompaniesFile, errors);
         TradeRules? trade = tradeJson is null ? new TradeRules() : Deserialize<TradeRules>(tradeJson, TradeFile, errors);
+        Macro.FxRules? fx = fxJson is null ? new Macro.FxRules() : Deserialize<Macro.FxRules>(fxJson, FxFile, errors);
         if (accounts is null || commodities is null || difficulties is null || events is null || taxes is null || companies is null || markets is null || ratings is null || bonds is null || legal is null
-            || playerCompanies is null || trade is null)
+            || playerCompanies is null || trade is null || fx is null)
         {
             return new DataLoadResult(null, errors);
         }
@@ -135,6 +138,18 @@ public static class GameDataLoader
         }
 
         ValidatePlayerCompanies(playerCompanies, errors);
+        if (fxJson is not null)
+        {
+            foreach (DifficultyDefinition d in difficulties.Where(d => !fx.Difficulties.ContainsKey(d.Id)))
+            {
+                errors.Add($"{FxFile}: falta la dificultad {d.Id}.");
+            }
+
+            if (fx.InitialRate <= 0)
+            {
+                errors.Add($"{FxFile}: initialRate tiene que ser positivo.");
+            }
+        }
         foreach (string id in trade.ExportDuties.Keys.Where(id => commodities.All(c => !c.Id.Equals(id, StringComparison.OrdinalIgnoreCase))))
         {
             errors.Add($"{TradeFile}: commodity desconocido en exportDuties: {id}.");
@@ -146,7 +161,7 @@ public static class GameDataLoader
         }
 
         var chart = new ChartOfAccounts(accounts.Select(a => new Account(a.Code, a.Name, a.Type)));
-        return new DataLoadResult(new GameData(chart, commodities, difficulties, events, taxes, companies, markets, ratings, bonds, legal, playerCompanies, trade), errors);
+        return new DataLoadResult(new GameData(chart, commodities, difficulties, events, taxes, companies, markets, ratings, bonds, legal, playerCompanies, trade, fx), errors);
     }
 
     private static T? Deserialize<T>(string json, string file, List<string> errors)

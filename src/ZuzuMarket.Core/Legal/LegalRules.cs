@@ -144,6 +144,7 @@ public enum LegalNoticeKind
     LoanTaken,
     RatingChanged,
     CashSeized,
+    BlueRaid,
 }
 
 public sealed record LegalNotice(LegalNoticeKind Kind, EconomicDate Date, decimal Amount = 0, string? Detail = null);

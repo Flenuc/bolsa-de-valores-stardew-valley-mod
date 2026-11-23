@@ -15,8 +15,8 @@ namespace ZuzuMarket.Core.State;
 /// <summary>Todo el estado del mod para una partida. Se guarda junto con la partida.</summary>
 public sealed class WorldState
 {
-    /// <summary>1: Fase 0. 2: inflación, commodities y eventos. 3: impuestos. 4: bolsa. 5: BCRF, bonos y crédito. 6: derivados. 7: legal. 8: sociedades y comercio exterior. 9: ON propias e IPO.</summary>
-    public const int CurrentSchemaVersion = 9;
+    /// <summary>1: Fase 0. 2: inflación, commodities y eventos. 3: impuestos. 4: bolsa. 5: BCRF, bonos y crédito. 6: derivados. 7: legal. 8: sociedades y comercio exterior. 9: ON propias e IPO. 10: oro gotoro.</summary>
+    public const int CurrentSchemaVersion = 10;
 
     public int SchemaVersion { get; set; } = CurrentSchemaVersion;
 
@@ -47,6 +47,8 @@ public sealed class WorldState
     public LegalState Legal { get; set; } = new();
 
     public CompaniesState Companies { get; set; } = new();
+
+    public Macro.FxState Fx { get; set; } = new();
 }
 
 public sealed class WorldStateSerializationException : Exception
@@ -120,6 +122,9 @@ public static class WorldStateSerializer
 
         // 7 → 8: sin sociedades ni exportaciones.
         state.Companies ??= new CompaniesState();
+
+        // 9 → 10: el tipo de cambio arranca al cargarse (oficial inicial, brecha según la dificultad).
+        state.Fx ??= new Macro.FxState();
 
         // 8 → 9: las S.A. reciben ticker al cargarse; nadie cotiza todavía.
         foreach (CompanyState company in state.Companies.Companies)

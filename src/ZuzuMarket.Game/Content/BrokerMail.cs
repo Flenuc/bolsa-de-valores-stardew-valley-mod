@@ -109,6 +109,7 @@ internal sealed class BrokerMail
                 MarketNoticeKind.FuturesReceived => I18n.Get("broker.hud.received", new { id = n.Instrument, units = n.Amount.ToString("#,0") }),
                 MarketNoticeKind.OptionExercised => I18n.Get("broker.hud.exercised", new { id = n.Instrument }),
                 MarketNoticeKind.OptionExpired => I18n.Get("broker.hud.option-expired", new { id = n.Instrument }),
+                MarketNoticeKind.MepSettled => I18n.Get(n.Amount >= 0 ? "broker.hud.mep-gtd" : "broker.hud.mep-local", new { amount = Math.Abs(n.Amount).ToString("#,0.00", Formatting.Culture(I18n)), bond = n.Instrument }),
                 MarketNoticeKind.RepoRepaid => I18n.Get("broker.hud.repo-repaid", new { amount = Formatting.Money(I18n, n.Amount) }),
                 MarketNoticeKind.RepoForcedSale => I18n.Get("broker.hud.repo-forced", new { amount = Formatting.Money(I18n, n.Amount) }),
                 MarketNoticeKind.Exchange => I18n.Get("broker.hud.exchange", new { old = n.Instrument.Split('>')[0], @new = n.Instrument.Split('>')[^1], quantity = n.Amount.ToString("#,0") }),

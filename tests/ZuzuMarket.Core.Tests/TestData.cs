@@ -27,7 +27,7 @@ internal static class TestData
     public static GameData WithoutEvents()
     {
         GameData real = Load();
-        return new GameData(real.Chart, real.Commodities, real.Difficulties, null, real.Taxes, real.Companies, real.Markets, real.Ratings, real.BondTemplates, real.Legal, real.PlayerCompanies, real.Trade);
+        return new GameData(real.Chart, real.Commodities, real.Difficulties, null, real.Taxes, real.Companies, real.Markets, real.Ratings, real.BondTemplates, real.Legal, real.PlayerCompanies, real.Trade, real.Fx);
     }
 
     /// <summary>Datos reales sin eventos y sin inflación (IPC = 1 siempre), para cuentas exactas de impuestos.</summary>
@@ -38,6 +38,12 @@ internal static class TestData
         {
             d.InflationMin = 0;
             d.InflationMax = 0;
+        }
+
+        // Sin devaluaciones: trasladarían inflación a los precios.
+        foreach (ZuzuMarket.Core.Macro.FxDifficultyRules fx in data.Fx.Difficulties.Values)
+        {
+            fx.DevaluationProbability = 0;
         }
 
         return data;
@@ -58,7 +64,7 @@ internal static class TestData
     public static GameData WithEvents(params EventDefinition[] events)
     {
         GameData real = Load();
-        return new GameData(real.Chart, real.Commodities, real.Difficulties, events, real.Taxes, real.Companies, real.Markets, real.Ratings, real.BondTemplates, real.Legal, real.PlayerCompanies, real.Trade);
+        return new GameData(real.Chart, real.Commodities, real.Difficulties, events, real.Taxes, real.Companies, real.Markets, real.Ratings, real.BondTemplates, real.Legal, real.PlayerCompanies, real.Trade, real.Fx);
     }
 
     /// <summary>Avanza la simulación día por día hasta la fecha indicada (inclusive).</summary>

@@ -5,9 +5,12 @@
 //   tenorSeasons  plazo en estaciones; pagos al empezar cada estación
 //   coupon   margen (Floating) o cupón real (Cer) por estación; en Fixed se ignora
 //   amortizationInstallments  cuotas iguales al final (1 = todo al vencimiento)
+//   currency  "GTD" = ley Gotoro en oro gotoro (precio y pagos en GTD; en oro local cotiza al MEP)
 [
   { "prefix": "BOFE",   "issuer": "FERNGILL", "type": "Fixed",    "tenorSeasons": 8,  "coupon": 0,     "amortizationInstallments": 1 },
   { "prefix": "BOVA",   "issuer": "FERNGILL", "type": "Floating", "tenorSeasons": 8,  "coupon": 0.015, "amortizationInstallments": 1 },
+  { "prefix": "GD",     "issuer": "FERNGILL", "type": "Fixed",    "tenorSeasons": 8,  "coupon": 0,     "amortizationInstallments": 4, "currency": "GTD" },
+  { "prefix": "GDL",    "issuer": "FERNGILL", "type": "Fixed",    "tenorSeasons": 16, "coupon": 0,     "amortizationInstallments": 8, "currency": "GTD" },
   { "prefix": "BOCER",  "issuer": "FERNGILL", "type": "Cer",      "tenorSeasons": 12, "coupon": 0.02, "amortizationInstallments": 4 },
   { "prefix": "ONJOJA", "issuer": "JOJA",     "type": "Fixed",    "tenorSeasons": 6,  "coupon": 0,     "amortizationInstallments": 1 },
   { "prefix": "ONBZUZ", "issuer": "BZUZ",     "type": "Floating", "tenorSeasons": 6,  "coupon": 0.008, "amortizationInstallments": 1 },

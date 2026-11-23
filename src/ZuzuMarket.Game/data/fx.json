@@ -1,0 +1,31 @@
+// Tipo de cambio con el oro gotoro (§5.3 de docs/DISENO.md): oro local por 1 oro gotoro (GTD).
+// Sin cepo (Casual, Realista): el oficial acompaña la inflación, sin brecha ni cupo; Krobus no vende billetes.
+// Con cepo (Argentina): cupo y recargo en el oficial, MEP y blue con brecha, parking y operativos.
+{
+  "initialRate": 50,
+  // Tasa de Gotoro por estación: base de los bonos ley Gotoro en oro gotoro.
+  "gotoroRate": 0.008,
+  "difficulties": {
+    "casual": {
+      "crawl": 1.0, "volatility": 0.001,
+      "devaluationProbability": 0.0, "devaluationMin": 0.1, "devaluationMax": 0.2, "passThrough": 0.1,
+      "cepo": false, "spread": 0.01
+    },
+    "realista": {
+      "crawl": 1.0, "volatility": 0.003,
+      "devaluationProbability": 0.03, "devaluationMin": 0.10, "devaluationMax": 0.20, "passThrough": 0.12,
+      "cepo": false, "spread": 0.01
+    },
+    "argentina": {
+      // El oficial corre atrás de la inflación (atraso cambiario) y cada tanto salta.
+      "crawl": 0.6, "volatility": 0.004,
+      "devaluationProbability": 0.15, "devaluationMin": 0.25, "devaluationMax": 0.70, "passThrough": 0.15,
+      "cepo": true, "quota": 200, "surcharge": 0.60, "spread": 0.02,
+      // Brecha media = base + peso × inflación mensual; vuelve a la media con ruido.
+      "gapBase": 0.40, "gapInflationWeight": 4.0, "gapReversion": 0.05, "gapVolatility": 0.02,
+      "blueExtra": 0.05, "blueSpread": 0.04,
+      "parkingDays": 1, "exportBlend": 0.2, "importSurcharge": 0.30,
+      "raidChance": 0.05, "raidFine": 0.5
+    }
+  }
+}

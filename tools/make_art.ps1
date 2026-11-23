@@ -98,4 +98,12 @@ Rect $ext 17 34 14 30 $wood; Rect $ext 18 35 12 29 (C '#7E5232')                
 Px $ext 27 50 $gold; Px $ext 27 51 $gold
 Rect $ext 0 62 48 2 $wallDark
 $ext.Save((Join-Path $Out 'agency_exterior.png'), [System.Drawing.Imaging.ImageFormat]::Png)
+# ───────────── Billete gotoro 16x16 ─────────────
+$bill = New-Canvas 16 16
+$paper = C '#7DBF7A'; $paperDark = C '#4E8F4B'; $ink = C '#1E4D2B'
+Rect $bill 1 4 14 8 $paperDark; Rect $bill 2 5 12 6 $paper
+Rect $bill 6 6 4 4 $paperDark; Rect $bill 7 7 2 2 (C '#E8C25A')             # sello dorado
+Rect $bill 3 6 2 1 $ink; Rect $bill 11 9 2 1 $ink
+Rect $bill 2 12 13 1 (C '#3B6E39')                                            # sombra (otro billete)
+$bill.Save((Join-Path $Out 'gotoro_bill.png'), [System.Drawing.Imaging.ImageFormat]::Png)
 "ok"

@@ -84,6 +84,8 @@ internal sealed class ConsoleCommands
         _helper.ConsoleCommands.Add("zuzu_companies", I18n.Get("cmd.companies.help"), WithSimulation(CompaniesCmd));
         _helper.ConsoleCommands.Add("zuzu_company", I18n.Get("cmd.company.help"), WithSimulation(CompanyCmd));
         _helper.ConsoleCommands.Add("zuzu_exports", I18n.Get("cmd.exports.help"), WithSimulation(ExportsCmd));
+        _helper.ConsoleCommands.Add("zuzu_fx", I18n.Get("cmd.fx.help"), WithSimulation(FxCmd));
+        _helper.ConsoleCommands.Add("zuzu_devalue", I18n.Get("cmd.devalue.help"), WithSimulation(DevalueCmd));
         _helper.ConsoleCommands.Add("zuzu_company_eps", I18n.Get("cmd.company-eps.help"), WithSimulation(CompanyEpsCmd));
         _helper.ConsoleCommands.Add("zuzu_unlock_companies", I18n.Get("cmd.unlock-companies.help"), WithSimulation(UnlockCompaniesCmd));
     }
@@ -892,6 +894,51 @@ internal sealed class ConsoleCommands
         }
 
         _monitor.Log(sb.ToString().TrimEnd(), LogLevel.Info);
+    }
+
+    private void FxCmd(EconomySimulation sim, string[] args)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine(I18n.Get("cmd.fx.summary", new
+        {
+            official = Money((decimal)sim.Fx.Official),
+            mep = Money((decimal)sim.Fx.Mep),
+            blue = Money((decimal)sim.Fx.Blue(sim.FxRules)),
+            gap = Formatting.Percent(I18n, sim.Fx.Gap),
+            cepo = sim.FxRules.Cepo ? I18n.Get("common.yes") : I18n.Get("common.no"),
+            gtd = sim.Broker.Gtd.ToString("#,0.00", Formatting.Culture(I18n)),
+            value = Money(sim.Broker.GotoroValue),
+        }));
+        foreach (ZuzuMarket.Core.Macro.FxClose h in sim.Fx.State.History.Skip(Math.Max(0, sim.Fx.State.History.Count - 7)))
+        {
+            sb.AppendLine($"  {GameDateBridge.Format(I18n, h.Date)}: {Money((decimal)h.Official)} · MEP {Money((decimal)h.Mep)} · blue {Money((decimal)h.Blue)}");
+        }
+
+        foreach (ZuzuMarket.Core.Macro.FxDevaluation d in sim.Fx.State.Devaluations)
+        {
+            sb.AppendLine(I18n.Get("cmd.fx.devaluation", new { date = GameDateBridge.Format(I18n, d.Date), size = Formatting.Percent(I18n, d.Size) }));
+        }
+
+        _monitor.Log(sb.ToString().TrimEnd(), LogLevel.Info);
+    }
+
+    private void DevalueCmd(EconomySimulation sim, string[] args)
+    {
+        if (!_config.DebugMode)
+        {
+            _monitor.Log(I18n.Get("cmd.debug-only", new { command = "zuzu_devalue" }), LogLevel.Warn);
+            return;
+        }
+
+        if (args.Length == 0 || !double.TryParse(args[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double pct) || pct <= 0)
+        {
+            _monitor.Log(I18n.Get("cmd.devalue.usage"), LogLevel.Info);
+            return;
+        }
+
+        sim.ForceDevaluation(pct / 100);
+        _helper.GameContent.InvalidateCache("Data/Shops");
+        _monitor.Log(I18n.Get("cmd.devalue.done", new { size = Formatting.Percent(I18n, pct / 100), rate = Money((decimal)sim.Fx.Official) }), LogLevel.Info);
     }
 
     private void CompanyEpsCmd(EconomySimulation sim, string[] args)
