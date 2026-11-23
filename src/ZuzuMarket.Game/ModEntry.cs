@@ -137,6 +137,9 @@ internal sealed class ModEntry : Mod
         helper.Events.GameLoop.UpdateTicked += _money.OnUpdateTicked;
         helper.Events.Player.InventoryChanged += _money.OnInventoryChanged;
         helper.Events.Player.InventoryChanged += OnBlueBought;
+
+        // Los nombres de los objetos del mod se traducen al cargarse: si el idioma cambia después, se recargan.
+        helper.Events.Content.LocaleChanged += (_, _) => InvalidateObjectNames();
         helper.Events.Input.ButtonPressed += _municipalidad.OnButtonPressed;
         helper.Events.Input.ButtonPressed += OnButtonPressed;
         helper.Events.Content.AssetRequested += objects.OnAssetRequested;
@@ -175,6 +178,7 @@ internal sealed class ModEntry : Mod
             }
 
             Helper.GameContent.InvalidateCache("Data/Shops");
+            InvalidateObjectNames();
 
             // La amistad con Julián baja las comisiones de la ALyC.
             Simulation.Broker.CommissionDiscount = () => _config.AgencyEnabled ? JulianNpc.CommissionDiscount : 0;
@@ -306,6 +310,13 @@ internal sealed class ModEntry : Mod
 
         _legalMail!.Publish(notices);
         _money!.Reset();
+    }
+
+    private void InvalidateObjectNames()
+    {
+        Helper.GameContent.InvalidateCache("Data/Objects");
+        Helper.GameContent.InvalidateCache("Data/BigCraftables");
+        Helper.GameContent.InvalidateCache("Data/Characters");
     }
 
     /// <summary>Debug: cambia la dificultad de la partida en curso y recarga la simulación.</summary>

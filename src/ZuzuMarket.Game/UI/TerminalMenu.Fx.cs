@@ -91,7 +91,7 @@ internal sealed partial class TerminalMenu
             enabled: Broker.MepBond is not null && Broker.Gtd >= amount);
         y += 58;
 
-        foreach (string line in Wrap(T(_sim.FxRules.Cepo ? "terminal.fx.help-cepo" : "terminal.fx.help-free"), area.Width).Take(3))
+        foreach (string line in Wrap(T(_sim.FxRules.Cepo ? "terminal.fx.help-cepo" : "terminal.fx.help-free"), area.Width).Take(4))
         {
             Text(b, line, area.X, y, Muted);
             y += 28;
