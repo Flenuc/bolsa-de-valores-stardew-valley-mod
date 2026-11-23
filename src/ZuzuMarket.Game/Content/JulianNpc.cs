@@ -314,7 +314,8 @@ internal sealed class JulianNpc
                 }
                 else if (answer == "pay")
                 {
-                    payBills();
+                    // El pago es otra pregunta: se abre cuando termina de cerrarse esta.
+                    DelayedAction.functionAfterDelay(payBills, 100);
                 }
             });
         return true;

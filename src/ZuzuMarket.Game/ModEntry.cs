@@ -115,7 +115,8 @@ internal sealed class ModEntry : Mod
         _companyMail = new CompanyMail(helper, ModManifest, _config, _taxMail);
         helper.Events.Content.AssetRequested += _companyMail.OnAssetRequested;
         _terminalActions = new TerminalActions(_brokerMail, _money, silo, exports, _companyMail);
-        _terminalActions.PayBills = () => { if (Simulation is not null) { _municipalidad.OpenDesk(Simulation); } };
+        // Se abre un instante después: así no se pisa con el cierre del menú o del diálogo anterior.
+        _terminalActions.PayBills = () => DelayedAction.functionAfterDelay(() => { if (Simulation is not null) { _municipalidad.OpenDesk(Simulation); } }, 100);
         helper.Events.Display.MenuChanged += silo.OnMenuChanged;
         helper.Events.Display.MenuChanged += exports.OnMenuChanged;
         var objects = new ModObjects(helper.Translation);
